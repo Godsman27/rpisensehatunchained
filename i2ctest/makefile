@@ -2,35 +2,42 @@
 CXX = gcc 
 CXXFLAGS = -g -std=c11
 #includes
-#INCLUDES:= -I
-DIRS = build/test build/lib
+#INCLUDES:= -I include/
+DIRS = build/test build/lib include
+
 #libraries that need to be linked
-LIBS = -lsense
+LIBS = build/lib/sensehat.a
+
 #objects to make
 OBJ = main.o
 #
 SRC = main.c
-#
-TSRC = main.c
-#
-GARBPATS = *.o
-GARB:= $(foreach DIR, $(DIRS),$(addprefix $(DIR)/,$(GARBPATS)))
-#
-all: --dirs test lib
-	#$(CXX) $(CXXFLAGS) $(SRC) -o build/$(OBJ)  $(LIBS)
-#making testfiles	
-test: --dirs
-	$(CXX) $(CXXFLAGS) $(SRC) -o build/test/$(OBJ) $(LIBS)
-	#@echo $(CXX) $(CXXFLAGS) $(SRC) -o build/test/$(OBJ) $(LIBS)
 
-lib: $(OBJ) --dirs
+#
+GARBPATS = *.o *.a
+GARB:= $(foreach DIR, $(DIRS),$(addprefix $(DIR)/,$(GARBPATS)))
+#	
+
+
+all: lib $(OBJ)
+	@echo "main make done!"
+
+#making testfiles	
+test: --dirs lib
+	$(CXX) $(CXXFLAGS) $(SRC) $(LIBS) -o build/test/$(OBJ) 
+	#@echo $(CXX) $(CXXFLAGS) $(SRC) $(LIBS) -o build/test/$(OBJ) 
+
+lib:	--dirs
+	cd Lib && $(MAKE)
 	@echo done
+
 --dirs:
 	-mkdir -p $(DIRS)
 	@echo "Making output directories"
+
 # generatic rule
 %.o: %.c 
-	$(CXX) $(CXXFLAGS) $^ -o build/lib/$@ $(LIBS)	
+	$(CXX) $(CXXFLAGS) $^ -o build/$@ $(LIBS)	
 clean:
 	-rm -f $(GARB)
 	
