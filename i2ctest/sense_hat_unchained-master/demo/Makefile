@@ -3,7 +3,7 @@ LIBS= -lsensehat -lpthread -lm
 
 all: sensedemo
 
-sensedemo: make_demo main.o
+sensedemo: main.o
 	$(CC) main.o $(LIBS) -o sensedemo
 
 main.o: main.c
