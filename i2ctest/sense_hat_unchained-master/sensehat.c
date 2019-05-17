@@ -319,6 +319,7 @@ int tmp;
 	if (rc == 4)
 	{
 		H_T_out = ucTemp[0] + (ucTemp[1] << 8);
+
 		T_out = ucTemp[2] + (ucTemp[3] << 8);
 		if (H_T_out > 32767) H_T_out -=65536;
 		if (T_out > 32767) T_out -= 65536;
