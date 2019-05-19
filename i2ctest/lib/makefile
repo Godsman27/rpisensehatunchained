@@ -10,8 +10,9 @@ OBJ := $(SRC:.c=.o)
 DEP := $(wildcard *.h)
 
 #
-
-sensehat.a: lib
+all: --sensehat.a
+	
+--sensehat.a: lib
 	ar rcs sensehat.a $(OBJ) 
 	cp -u  $(DEP) $(MAINDIR)include/
 	cp -u sensehat.a $(DIRS)

@@ -1,17 +1,18 @@
-#include <stdio.h>
-#include <string.h>
+#include <stdio.h>			//Needed for debugging purpuses
+#include <string.h>			//Needed for memcpy functions
 #include <unistd.h>                     //Needed for I2C port
 #include <fcntl.h>                      //Needed for I2C port
 #include <sys/ioctl.h>                  //Needed for I2C port
 #include <linux/i2c-dev.h>              //Needed for I2C port
-#include "sensehat.h"
+#include "sensehat.h"			
+#include "registers.h"			//register definitions for hardware of the rpi sensehat
 
 static int OpenBus(char *filename);
 static int OpenSlave(int addr, int file_i2c);
 static int ReadSlave(int file_i2c, unsigned char regi, unsigned char* buffer, int length);
 static int WriteSlave(int file_i2c, unsigned char regi, unsigned char* buffer, int length);
 
-static unsigned char LEDArray[192] = {0};
+static unsigned char LEDmatrix[192] = {0}; 
 static int file_joyled = -1; // led2472 via attiny
 static int file_pressure = -1; //lps25h pressure sensor
 static int file_humi=-1; // //hts221 temp/hum sensor
@@ -25,14 +26,37 @@ static int H1_T0_OUT, T0_OUT, T1_OUT;
 
 int Init(int bus)
 {
+	unsigned char buf[32] = {0}; //buffer for setting and reading settings of sensors
 	char filename[32];
 	sprintf(filename, "/dev/i2c-%d", bus);
+	//led display
 	file_joyled = OpenBus(filename);
-	if(file_joyled <0)
+	OpenSlave(ATTINY,file_joyled);
+	//humi and temp sensor
+	file_humi = OpenBus(filename);
+	OpenSlave(HTS221,file_humi);
+	//pressure sensor
+	file_pressure = OpenBus(filename);
+	OpenSlave(LPSH25H,file_pressure);
+	//magnetometer
+	file_magnet = OpenBus(filename);
+	OpenSlave(LSM9DS1M,file_magnet);
+	//gyro and accelerometer
+	file_acc = OpenBus(filename);
+	OpenSlave(LSM9DS1,file_acc);
+	
+	if(file_joyled <0|file_humi <0 | file_acc <0 | file_pressure <0 | file_magnet <0 )
 	{
 		return -1;
 	}
-	OpenSlave(0x46,file_joyled);
+	
+	// activate huminity sensor.
+	ReadSlave(file_humi,HT_AV_CONF,buf,1); // read the AV_CONF of the hum sensor so we can adjus tthe settings
+	unsigned char AV_CONF_R = buf[0];
+	AV_CONF_R &= 0xC0; // keep reserved bits
+	AV_CONF_R |= 0x3F; // set AVGT to 256 samples and AVGH to 512 samples
+	
+
 	return 1;
 }
 static int OpenBus(char *filename)
@@ -99,20 +123,21 @@ int SetPixel(int x, int y, uint16_t color, int bUpdate)
 	if (x >= 0 && x < 8 && y >= 0 && y < 8)
 	{
 		i = (y*24)+x; // offset into array
-		LEDArray[i] = (uint8_t)((color>>10) & 0x3e); // Red
-		LEDArray[i+8] = (uint8_t)((color>>5) & 0x3f); // Green
-		LEDArray[i+16] = (uint8_t)((color<<1) & 0x3e); // Blue
+		LEDmatrix[i] = (uint8_t)((color>>10) & 0x3e); // Red
+		LEDmatrix[i+8] = (uint8_t)((color>>5) & 0x3f); // Green
+		LEDmatrix[i+16] = (uint8_t)((color<<1) & 0x3e); // Blue
 		if (bUpdate)
 		{
-			WriteSlave(file_joyled, 0 ,LEDArray, 192); // have to send the whole array at once,starting from register 0
+			WriteSlave(file_joyled, 0 ,LEDmatrix, 192); // have to send the whole array at once,starting from register 0
 		}
 		return 1;
 	}
 	return 0;
 }
+
 int SetPattern(uint16_t* pattern, int size)
 {
-	if(size != 63)
+	if(size != 63 && pattern != NULL)
 	{
 		return -1;
 	}
@@ -123,8 +148,8 @@ int SetPattern(uint16_t* pattern, int size)
 		for(x=0;x<8;x++)
 		{
 			i = (y*8) + x;
-			printf("%i\n",i);
-			SetPixel(x,y,pattern[i],1);
+			SetPixel(x,y,pattern[i],0);
 		}		
 	}
+	SetPixel(0,0,pattern[0],1);
 }

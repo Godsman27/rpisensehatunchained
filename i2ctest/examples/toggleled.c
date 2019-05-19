@@ -2,18 +2,11 @@
 #include <string.h>
 #include <sensehat.h>
 #include <stdint.h>
+#include <sys/time.h>
 #define EVER ;;
-
-// The LED Array is handled by a dedicated microcontroller
-// It must be updated in a single shot by writing
-// 192 bytes starting at register 0
-// The memory is laid out in each row like this:
-// RRRRRRRRGGGGGGGGBBBBBBBB
-// Each byte can have 64 unique levels (0-63)
-//
-#define Y 0xEFE0
-#define B 0x0FFE
-
+#define Y 0xF800
+#define B 0xAA00
+#define O 0x0000
 uint16_t pat1[64] = 
 {//
 Y,Y,Y,Y,Y,Y,Y,Y,//
@@ -36,11 +29,29 @@ Y,B,Y,B,Y,B,Y,B,//
 B,Y,B,Y,B,Y,B,Y//
 };
 
+uint16_t pat3[64] = 
+{//
+Y,Y,Y,Y,Y,Y,Y,Y,//
+Y,Y,O,O,O,O,O,Y,//
+Y,O,Y,O,O,O,O,Y,//
+Y,O,O,Y,O,O,O,Y,//
+Y,O,O,O,Y,O,O,Y,//
+Y,O,O,O,O,Y,O,Y,//
+Y,O,O,O,O,O,Y,Y,//
+Y,Y,Y,Y,Y,Y,Y,Y//
+};
 int main ()
 {	
 	//----- OPEN THE I2C BUS -----
 	Init(1);
-	SetPattern(pat2,63);	
-
+	for(EVER)
+	{
+		sleep(1);
+		SetPattern(pat2,63);	
+		sleep(1);
+		SetPattern(pat1,63);
+		sleep(1);
+		SetPattern(pat3,63);
+	}
 }
 
