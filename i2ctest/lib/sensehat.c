@@ -55,8 +55,9 @@ int Init(int bus)
 	unsigned char AV_CONF_R = buf[0];
 	AV_CONF_R &= 0xC0; // keep reserved bits
 	AV_CONF_R |= 0x3F; // set AVGT to 256 samples and AVGH to 512 samples
+	WriteSlave(file_humi,&HT_AV_CONF,AV_CONF_R,1);	
 	
-
+	
 	return 1;
 }
 static int OpenBus(char *filename)
