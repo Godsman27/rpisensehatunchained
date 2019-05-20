@@ -9,6 +9,7 @@
 */
 #define ATTINY			0x46
 #define LED0			0x00
+#define JOYSTICK		0xF2 // to read the status of the gnotsknots
 
 /*
 	LSM9DS1 GYROSCOPE AND ACCELEROMETER

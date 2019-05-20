@@ -24,42 +24,6 @@ static int H0_rH_x2, H1_rH_x2, T0_degC_x8;
 static int T1_degC_x8, H0_T0_OUT;
 static int H1_T0_OUT, T0_OUT, T1_OUT;
 
-int Init(int bus)
-{
-	unsigned char buf[32] = {0}; //buffer for setting and reading settings of sensors
-	char filename[32];
-	sprintf(filename, "/dev/i2c-%d", bus);
-	//led display
-	file_joyled = OpenBus(filename);
-	OpenSlave(ATTINY,file_joyled);
-	//humi and temp sensor
-	file_humi = OpenBus(filename);
-	OpenSlave(HTS221,file_humi);
-	//pressure sensor
-	file_pressure = OpenBus(filename);
-	OpenSlave(LPSH25H,file_pressure);
-	//magnetometer
-	file_magnet = OpenBus(filename);
-	OpenSlave(LSM9DS1M,file_magnet);
-	//gyro and accelerometer
-	file_acc = OpenBus(filename);
-	OpenSlave(LSM9DS1,file_acc);
-	
-	if(file_joyled <0|file_humi <0 | file_acc <0 | file_pressure <0 | file_magnet <0 )
-	{
-		return -1;
-	}
-	
-	// activate huminity sensor.
-	ReadSlave(file_humi,HT_AV_CONF,buf,1); // read the AV_CONF of the hum sensor so we can adjus tthe settings
-	unsigned char AV_CONF_R = buf[0];
-	AV_CONF_R &= 0xC0; // keep reserved bits
-	AV_CONF_R |= 0x3F; // set AVGT to 256 samples and AVGH to 512 samples
-	WriteSlave(file_humi,HT_AV_CONF,&AV_CONF_R,1);	
-	
-	
-	return 1;
-}
 static int OpenBus(char *filename)
 {
         int bus; 
@@ -89,15 +53,18 @@ static int OpenSlave(int addr, int file_i2c)
 
 static int ReadSlave(int file_i2c, unsigned char regi, unsigned char* buffer,int length)
 {	
-	if(buffer =NULL)
+	if(buffer == NULL)
 	{
+//		printf("empty buffer u fool\n");
 		return -1;
 	}
 
 	int rc = write(file_i2c, &regi, 1); // write the register adress that we want to read first.
+	//printf("write %i bytes from register %x\n",rc, regi);
 	if(rc == 1)
 	{
 		rc =  read(file_i2c, buffer, length);
+		//printf("Read %i bytes from register ox%x\n",rc,regi);
 	}
         //----- READ BYTES -----
         return rc;
@@ -115,7 +82,152 @@ static int WriteSlave(int file_i2c, unsigned char regi ,unsigned char* buffer,in
 	buf[0] = regi; // first send the register to write to.
 	memcpy(&buf[1],buffer,length);
         int out = write(file_i2c, buf, length+1);
-        return out-1; //remove one from the written bytes cause of the adress that was added to the start of the data.
+	return out-1; //remove one from the written bytes cause of the adress that was added to the start of the data.
+}
+
+int InitRpiSense(int bus)
+{
+	int rt = InitDisplay(bus);
+	rt = InitHTS(bus);
+	rt = InitLPSH(bus);
+	rt = InitLSM(bus);
+	return rt;
+}
+
+int InitDisplay(int bus)
+{
+	unsigned char buf[32] = {0}; //buffer for setting and reading settings of sensors
+	char filename[32];
+	sprintf(filename, "/dev/i2c-%d", bus);
+	//led display
+	file_joyled = OpenBus(filename);
+	OpenSlave(ATTINY,file_joyled);
+
+
+	
+	if(file_joyled <0)
+	{
+		return -1;
+	}		
+	return 1;
+}
+int InitHTS(int bus)
+{	
+	unsigned char buf[32] = {0}; //buffer for setting and reading settings of sensors
+	char filename[32];
+	int rc =0;
+	sprintf(filename, "/dev/i2c-%d", bus);
+	file_humi = OpenBus(filename);
+	OpenSlave(HTS221,file_humi);
+	if(file_humi <0)
+	{
+		return -1;
+	}
+	// activate huminity sensor.
+	rc = ReadSlave(file_humi,HT_AV_CONF,buf,1); // read the AV_CONF of the hum sensor so we can adjust the settings
+	//printf("Recieved bytes from AV_CONF_READ: %i\n",rc);
+	if(rc == 1)
+	{
+		unsigned char AV_CONF_R = buf[0];
+		AV_CONF_R &= 0xC0; // keep reserved bits
+		AV_CONF_R |= 0x38; //
+		WriteSlave(file_humi,HT_AV_CONF,&AV_CONF_R,1);
+	}
+	else
+	{
+		return -2;
+	}
+	buf[0] =0x0; // clear the used buffer place to be sure that its empty.
+	//read control registers all at once.
+	rc = ReadSlave(file_humi,HT_CTRL_REG1+REGISTERREAD,buf,3); //read control register 1 and 2.
+	if(rc==3)
+	{
+		unsigned char CTRL_REG1_R = buf[0];
+		CTRL_REG1_R &= 0x78; // keep the reserved bits that must stay the same
+		CTRL_REG1_R |= 0x87; // power-on sensor, continues conversion and set output rate to 7 Hz	
+		unsigned char CTRL_REG2_R = buf[1];
+		CTRL_REG2_R &= 0x7C; // reload calibration values, just incase something went wrong above.
+		//write the changed registers back to sensor.
+		buf[0] = CTRL_REG1_R;
+		buf[1] = CTRL_REG2_R;
+		WriteSlave(file_humi,HT_CTRL_REG1+REGISTERREAD,buf,3);
+	}
+	else
+	{
+		return -3;
+	}
+	//Now to calibrate the sensor
+	// read all calibration values in one go. 
+	rc = ReadSlave(file_humi,HT_H0_rH_x2+REGISTERREAD, buf, 16); // buf[4], buf[8], buf[9] are reserved registers and containt no calibration values.
+	if(rc == 16) 
+	
+	{
+		H0_rH_x2 = buf[0];
+		//printf("H0_rH_2x = 0x%x\n",H0_rH_x2);
+		H1_rH_x2 = buf[1];
+
+		//printf("H1_rH_2x = 0x%x\n",H1_rH_x2);
+		T0_degC_x8 = buf[2];
+		//printf("T0_degC_8x = 0x%x\n",T0_degC_x8);
+		T1_degC_x8 = buf[3];
+		//printf("T1_degc_8x = 0x%x\n",T1_degC_x8);
+		
+		T0_degC_x8 |= ((buf[5] & 0x3) << 8); // 2 msb bits
+		//printf("T0_degC_8x = 0x%x\n",T0_degC_x8);
+		T1_degC_x8 |= ((buf[5] & 0xc) << 6); // 2 msb bits rest of the bits are reserved and shoudl not be used.
+		//printf("T1_degC_8x = 0x%x\n",T1_degC_x8);
+		H0_T0_OUT = buf[6] | (buf[7] << 8);
+		//printf("H0_T0_OUT = 0x%x\n",H0_T0_OUT);
+		H1_T0_OUT = buf[10] | (buf[11] << 8);
+		//printf("H1_T0_OUT = 0x%x\n",H1_T0_OUT);
+		T0_OUT = buf[12] | (buf[13] << 8);
+		T1_OUT = buf[14] | (buf[15] << 8);
+		//printf("T0_OUT = 0x%x\n",T0_OUT);
+		//printf("T1_OUT = 0x%x\n",T1_OUT);
+	}
+	else
+	{
+		return -4;
+	}
+	if (H0_T0_OUT > 32767) H0_T0_OUT -= 65536; // check if value is signed or not if so adjust it.
+	if (H1_T0_OUT > 32767) H1_T0_OUT -= 65536; 
+	if (T0_OUT > 32767) T0_OUT -= 65536;
+	if (T1_OUT > 32767) T1_OUT -= 65536;
+	return 1;
+}
+
+
+int InitLPSH(int bus)
+{
+	unsigned char buf[32] = {0}; //buffer for setting and reading settings of sensors
+	char filename[32];
+	sprintf(filename, "/dev/i2c-%d", bus);
+	//pressure sensor
+	file_pressure = OpenBus(filename);
+	OpenSlave(LPSH25H,file_pressure);
+	if(file_pressure <0)
+	{
+		return -1;
+	}
+ 	return 1;
+}
+
+int InitLSM(int bus)
+{
+	unsigned char buf[32] = {0}; //buffer for setting and reading settings of the sensor
+	char filename[32];
+	sprintf(filename, "/dev/i2c-%d", bus);
+	//magnetometer
+	file_magnet = OpenBus(filename);
+	OpenSlave(LSM9DS1M,file_magnet);
+	//gyro and accelerometer
+	file_acc = OpenBus(filename);
+	OpenSlave(LSM9DS1,file_acc);
+	if(file_magnet < 0 | file_acc < 0)
+	{
+		return -1;
+	}
+	return 1;
 }
 
 int SetPixel(int x, int y, uint16_t color, int bUpdate)
@@ -153,4 +265,66 @@ int SetPattern(uint16_t* pattern, int size)
 		}		
 	}
 	SetPixel(0,0,pattern[0],1);
+}
+int ReadTemp(double *temp_out)
+{
+	unsigned char buf[2];
+	int rc;
+	int T_out;
+	double T0_degC, T1_degC;
+	double tmp;
+	 //read both output registrs for the temperature;
+	rc = ReadSlave(file_humi, HT_TEMP_OUT_L + REGISTERREAD, buf, 2);
+	if (rc == 2)
+	{
+		T_out = buf[0] + (buf[1] << 8); //create the 10 bit output value
+		if (T_out > 32767) T_out -= 65536; // check if value must be signed or not.
+		T0_degC = T0_degC_x8 / 8.0; // T0/T1_deg_C_x8 is calibation value that need to be devided by 8 cause the original value is a multiplied by 8.
+		//printf("T0_degC = %i\n",T0_degC);
+		T1_degC = T1_degC_x8 / 8.0;
+		//printf("T1_degC = %i\n",T1_degC); 
+		//printf("t1 calculated\n");
+		tmp = (T_out - T0_OUT) * (T1_degC - T0_degC);
+		//printf("tmp = %i\n",tmp);
+		*temp_out = tmp / (T1_OUT - T0_OUT) + T0_degC;
+
+		//printf("temp_out =%i\n", *temp_out);
+		return 1;
+	}
+	return 0; // not ready	
+}
+
+int ReadHumidity(double* hum_out)
+{
+	unsigned char buf[2];
+	int rc;
+	int H_T_out;
+	double H0_rh, H1_rh;
+	double tmp;
+
+	rc = ReadSlave(file_humi,HT_HUMI_OUT_L, buf, 2);
+	if (rc == 2)
+	{
+		H_T_out = buf[0] + (buf[1] << 8);
+		if (H_T_out > 32767) H_T_out -=65536;
+		H0_rh = H0_rH_x2 / 2.0;
+		H1_rh = H1_rH_x2 / 2.0;
+		tmp = (H_T_out - H0_T0_OUT) * (H1_rh - H0_rh);
+		*hum_out = tmp / (H1_T0_OUT - H0_T0_OUT) + H0_rh;
+		return 1;
+	}
+	return 0; // not ready
+}
+void Shutdown(void)
+{
+	uint16_t ledbuf[64] = {0x0};
+	SetPattern(ledbuf, 63);
+	// Close all I2C file handles
+	if (file_joyled != -1) close(file_joyled);
+	if (file_humi != -1) close(file_humi);
+	if (file_pressure != -1) close(file_pressure);
+	if (file_acc != -1) close(file_acc);
+	if (file_magnet != -1) close(file_magnet);
+	file_joyled = file_humi = file_pressure = file_acc = file_magnet = -1;
+	printf("Clean exit achieved\n");
 }
