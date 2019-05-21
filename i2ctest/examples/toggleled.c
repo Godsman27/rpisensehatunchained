@@ -87,8 +87,6 @@ int main ()
 		printf("Magne_X = %6.1i, Magne_Y = %6.1i, Magne_Z = %6.1i\n",mx,my,mz);
 		sleep(1);
 		SetPattern(pat1,63);
-}
+	}
+}		
 
-=======
-	}		
-}

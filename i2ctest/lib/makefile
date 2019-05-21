@@ -1,4 +1,4 @@
-MAINDIR = /home/pi/code/rpisensehatunchained/i2ctest/
+MAINDIR = ../
 CXX = gcc 
 CXXFLAGS = -c -std=c11
 INCFLAGS = -I $(MAINDIR)include
