@@ -14,7 +14,7 @@
 /*
 	LSM9DS1 GYROSCOPE AND ACCELEROMETER
 */
-#define LSM9DS1			0x1Cc
+#define LSM9DS1			0x6A
 	// output registers gyroscope
 #define GYRO_OUT_X_L		0x18	
 #define GYRO_OUT_X_H		0x19
@@ -47,7 +47,7 @@
 /*	
 	LSM9DS1 MAGNETOMETER
 */
-#define LSM9DS1M		0x6A
+#define LSM9DS1M		0x1C
 	// output registers magnetometer
 #define MAG_OUT_X_L		0x28
 #define MAG_OUT_X_H		0x29
