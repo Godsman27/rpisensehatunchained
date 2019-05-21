@@ -1,5 +1,5 @@
 #examples
-MAINDIR = /home/pi/Documents/rpisense/C/i2ctest/
+MAINDIR = /home/pi/code/rpisensehatunchained/i2ctest/
 CXX = gcc 
 CXXFLAGS = -g -std=c11
 INCFLAGS = -I$(MAINDIR)include

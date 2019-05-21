@@ -66,9 +66,9 @@ int main ()
 	int mx=0,my=0,mz=0,gx=0,gy=0,gz=0,ax=0,ay=0,az=0;
 	r = InitLSM(1);
 	printf("LSM init returned: %i\n",r);
-	for(EVER)
+/*	for(EVER)
 	{
-//		sleep(1);
+		sleep(1);
 		SetPattern(pat2,63);	
 
 		//sleep(1);
@@ -89,6 +89,6 @@ int main ()
 		printf("Magne_X = %6.1i, Magne_Y = %6.1i, Magne_Z = %6.1i\n",mx,my,mz);
 		sleep(1);
 		SetPattern(pat1,63);
-	}		
+	}*/		
 }
 
