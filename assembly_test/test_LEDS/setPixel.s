@@ -69,8 +69,8 @@ case_different:			@ if
 	str r7, [r1, #+16]
 
 		
-	
-	
+	mov	r7, #1 
+	str r7, [r6]	
 	
 	
 	beq end
