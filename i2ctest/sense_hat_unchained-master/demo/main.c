@@ -40,7 +40,7 @@ int main(int argc, char *argv[])
 {
 int i;
 unsigned char ucKeys;
-
+int Gx=0,Gy=0,Gz=0;
 	if (shInit(1) == 0) // Open I2C	
 	{
 		printf("Unable to open sense hat; is it connected?\n");
@@ -53,6 +53,8 @@ unsigned char ucKeys;
 		UpdatePattern();
 		red = 0;
 		UpdatePattern();
+		shGetGyro(&Gx, &Gy,  &Gz);
+		printf("%6.0i, %6.0i, %6.0i\n",Gx,Gy,Gz);
 	} // while waiting for joystick press
 	shShutdown();
 	return 0;

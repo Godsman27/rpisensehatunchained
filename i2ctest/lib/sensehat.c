@@ -44,7 +44,7 @@ static int OpenSlave(int addr, int file_i2c)
         int out = ioctl(file_i2c,I2C_SLAVE, addr);
         if (out < 0)
         {
-                printf("Failed to acquire bus access and/or talk to slave.\n");
+                printf("Failed to acquire bus access and/or talk to slave, 0x%x\n");
                 //ERROR HANDLING; you can check errno to see what went wrong
                 return out;
         }
