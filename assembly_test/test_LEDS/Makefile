@@ -1,7 +1,7 @@
-all: main
-led: main.o
+all: setPixel
+led: setPixel.o
 	gcc -o $@ $+
-main.o : main.s
-	as -g -mfpu=vfpv2 -o $@ $<
+setPixel.o : setPixel.s
+	as -c -mfpu=vfpv2  -o $@ $<
 clean:
-	rm -vf main *.o
+	rm -vf setPixel *.o

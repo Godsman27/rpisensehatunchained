@@ -1,15 +1,27 @@
 
 
 .data
-
 LEDArray: 	.skip 193
+
+.balign 4
+message1:	.asciz "Number:\t%d\n"
+
+.balign 4
+return:	.word 0
 
 .text
 .global main
 .type	main,%function
 main: 
-	
 
+	ldr r7, =return
+	str lr, [r7]
+
+	mov	r0, #0
+	mov r1, #0
+
+	mov r2, #0xFFFF
+	mov r3, #1
 
 	ldr r6, =LEDArray
 	
@@ -25,67 +37,67 @@ other:					@ if r1 < 0 && r1 >= 8
 	cmp r1, #8
 	bhs case_true
 
+	
 
 
 
 case_different:			@ if
 	
 	
-				@ i = y * 24 + x
+			@ i = (y * 24) + x
 	mov r8, #24
 	mla	r1, r8, r1, r0
+	add r1, r6, r1		
+	add r1, r1, #1
+
+	
+
 
 	cmp	r3, #0
 
 	mov	r7, r2, LSR #10
 	and r7, #0x3e
-	strb r7, [r5]
+	str r7, [r1]
+	
 
 	mov	r7, r2, LSR #5
 	and r7, #0x3f
-	strb	r7, [r5, #+8]
-
+	str	r7, [r1, #+8]
+	
 	mov	r7, r2, LSL #1
 	and r7, #0x3e
-	strb r7, [r5, #+16]
+	str r7, [r1, #+16]
 
+		
 	
-
+	
+	
+	
 	beq end
-	
+
 	mov r0, #3
-	ldr r1, [r6]
-	mov r2, #192	
-	bl	i2cWrite
+	ldr r1, =LEDArray
+	mov r2, #193	
+	bl	write
 
 	
 
 end:
-	mov r0, #1
+	mov r0, r3
+	ldr r7, =return
+	ldr lr, [r7]
 	bx	lr
 	
 case_true:				@ else
-	mov r0, #0
+	mov r0, r3
+	ldr r7, =return
+	ldr lr, [r7]	
+	bx 	lr	
 
 
 
 
-.global i2cWrite
-.type	i2cWrite,%function
-i2cWrite:
-	push	{r4,r5,r6,r7,r8,lr}
-	mov		r6, r0	@ iHandle
 
-	mov		r8, r1	@ ucAddr
-	mov		r1, r0	@ iHandle
-	mov 	r5, r3	@ iLen
-	mov 	r7, r2	@ buf
-
-	pop		{r4,r5,r6,r7,r8,lr}
-	
-
-
-
-
+.global	printf
 
 
