@@ -1,8 +1,8 @@
 #ifndef HARDWARE_H
 #define HARDWARE_H
 
-#define REGISTERREAD		0x80 // add this together with register adress to read (n) following registers after the first adressed register
-				     //	example: read(i2c_file ,0x28 + REGISTERREAD, buffer, n) will result in reading n bytes starting from register 0x28. 
+#define CONTIRW		0x80 // add this together with register adress to read (n) following registers after the first adressed register
+				     //	example: read(i2c_file ,0x28 + CONTIRW, buffer, n) will result in reading n bytes starting from register 0x28. 
 
 /*
 	ATTINY- MICROCONTROLLER
@@ -14,7 +14,7 @@
 /*
 	LSM9DS1 GYROSCOPE AND ACCELEROMETER
 */
-#define LSM9DS1			0x1c
+#define LSM9DS1			0x1Cc
 	// output registers gyroscope
 #define GYRO_OUT_X_L		0x18	
 #define GYRO_OUT_X_H		0x19
@@ -29,10 +29,25 @@
 #define ACCEL_OUT_Y_H		0x2B
 #define ACCEL_OUT_Z_L		0x2C
 #define ACCEL_OUT_Z_H		0x2D
+
+	//CTRL registers for gyro and accelerometer
+#define GYROACC_FIFO_CTRL	0x2E
+#define LSMGA_CTRL_1_G		0x10
+#define LSMGA_CTRL_2_G		0x11
+#define LSMGA_CTRL_3_G		0x12
+
+#define LSMGA_CTRL_4		0x1E
+#define LSMGA_CTRL_5_XL		0x1F
+#define LSMGA_CTRL_6_XL		0x20
+#define LSMGA_CTRL_7_XL		0x21
+#define LSMGA_CTRL_8		0x22
+#define LSMGA_CTRL_9		0x23
+#define LSMGA_CTRL_10		0x24
+
 /*	
 	LSM9DS1 MAGNETOMETER
 */
-#define LSM9DS1M		0x6a
+#define LSM9DS1M		0x6A
 	// output registers magnetometer
 #define MAG_OUT_X_L		0x28
 #define MAG_OUT_X_H		0x29
@@ -41,6 +56,12 @@
 #define MAG_OUT_Z_L		0x2C
 #define MAG_OUT_Z_H		0x2D
 
+	// ctrl rtegisters
+#define MAG_CTRL_1		0x20
+#define MAG_CTRL_2		0x21
+#define MAG_CTRL_3		0x22
+#define MAG_CTRL_4		0x23
+#define MAG_CTRL_5		0x24
 /*
 	LPSH25H druksensor
 */
