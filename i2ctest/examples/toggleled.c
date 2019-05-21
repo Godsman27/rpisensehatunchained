@@ -56,6 +56,7 @@ Y,Y,Y,Y,Y,Y,Y,Y//
 int main ()
 {	
 	//----- OPEN THE I2C BUS -----
+	unsigned char stop = 0;
 	InitDisplay(1);
 	int r = InitHTS(1);
 	double temp =0, hum = 0;
@@ -66,15 +67,10 @@ int main ()
 	int mx=0,my=0,mz=0,gx=0,gy=0,gz=0,ax=0,ay=0,az=0;
 	r = InitLSM(1);
 	printf("LSM init returned: %i\n",r);
-	for(EVER)
+	while(stop == 0)
 	{
-//		sleep(1);
-		SetPattern(pat2,63);	
-
-		//sleep(1);
-		//SetPattern(pat3,63);
-		//sleep(1);
-		//SetPattern(pat4,63);
+		sleep(1);
+		SetPattern(pat2,63);
 		ReadTemp(&temp);
 		ReadHumidity(&hum);
 		ReadPressure(&pressure);
@@ -82,6 +78,8 @@ int main ()
 		ReadGyro(&gx,&gy,&gz);
 		ReadMagnet(&mx,&my,&mz);
 		ReadAccel(&ax,&ay,&az);
+		stop = ReadJoystick();
+		printf("Key = %02x\n", stop);
 		printf("Temperature is: %6.6f, Huminity = %6.6f\n",temp,hum);
 		printf("Pressure is: %6.6f, Pressure temperature = %6.6f\n",pressure,ptemp);
 		printf("Gyros_X = %6.1i, Gyros_Y = %6.1i, Gyros_Z = %6.1i\n",gx,gy,gz);
@@ -90,5 +88,4 @@ int main ()
 		sleep(1);
 		SetPattern(pat1,63);
 	}		
-}
-
+}//

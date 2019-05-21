@@ -2,6 +2,13 @@
 #define RPISENSE_H
 #include <stdio.h>
 #include <stdint.h>
+// bit definitions for genotsknots
+#define JOY_DOWN 1
+#define JOY_UP   4
+#define JOY_LEFT 16
+#define JOY_RIGHT 2
+#define JOY_ENTER 8
+
 int InitRpiSense(int bus);
 int InitDisplay(int bus);
 int InitHTS(int bus);
@@ -17,9 +24,8 @@ int ReadGyro(int* gyro_x, int* gyro_y, int* gyro_z);
 int ReadAccel(int* accel_x, int* accel_y, int* accel_z);
 int ReadMagnet(int* mag_x, int* mag_y, int *mag_z); //read the magnetic sensor
 void Shutdown(void);
+unsigned char ReadJoystick(void); //read
 
-/*
-int ReadJoystick(char* keysout); //read
-*/
+
 #endif
 

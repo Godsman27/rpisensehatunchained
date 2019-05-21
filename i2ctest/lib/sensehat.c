@@ -44,7 +44,7 @@ static int OpenSlave(int addr, int file_i2c)
         int out = ioctl(file_i2c,I2C_SLAVE, addr);
         if (out < 0)
         {
-                printf("Failed to acquire bus access and/or talk to slave, 0x%x\n");
+                printf("Failed to acquire bus access and/or talk to slave.\n");
                 //ERROR HANDLING; you can check errno to see what went wrong
                 return out;
         }
@@ -240,15 +240,15 @@ int InitLSM(int bus)
 	buf[1] = 0x00; // default scale
 	buf[2] = 0x00; // continuous conversion
 	buf[3] = 0x08; // high performance mode
-	WriteSlave(file_magnet, 0x20+0x80, buf, 4);
+	WriteSlave(file_magnet,MAG_CTRL_1 +CONTIRW, buf, 4);
 
 	// Init accelerometer	
 	buf[0] = 0x60; // 119hz accel
-	WriteSlave(file_acc, 0x20, buf, 1);
+	WriteSlave(file_acc, LSMGA_CTRL_6_XL, buf, 1);
 	buf[0] = 0x38; // enable gyro on all axes
-	WriteSlave(file_acc, 0x1e, buf, 1);
+	WriteSlave(file_acc, LSMGA_CTRL_4, buf, 1);
         buf[0] = 0x28; // data rate + full scale + bw selection
-        WriteSlave(file_acc, 0x10, buf, 1); // gyro ctrl_reg1
+        WriteSlave(file_acc, LSMGA_CTRL_1_G, buf, 1); // gyro ctrl_reg1
 
 	return 1;
 }
@@ -441,15 +441,21 @@ int ReadMagnet(int* mag_x, int* mag_y, int *mag_z)
 		return 1;
 	}
 	return 0;
-} /* shGetMagneto() */
+}
 
-//
-// Returns the air pressure in hPa and temp in C * 10 (18.1 = 181)
-//
-// 1 = pressure successfully read
-// 0 = failed to read pressure
-//
+unsigned char ReadJoystick(void)
+{
+	unsigned char buf[2];
+	int rc;
 
+	if (file_joyled != -1)
+	{
+		rc = ReadSlave(file_joyled, 0xf2, buf, 1);
+		if (rc == 1)
+			return buf[0];
+	}
+	return 0;
+}
 void Shutdown(void)
 {
 	uint16_t ledbuf[64] = {0x0};
