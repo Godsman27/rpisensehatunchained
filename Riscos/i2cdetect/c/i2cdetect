@@ -22,7 +22,7 @@ int main(void) {
   int i;
   int rowc =0;
   int tabc =00;
-  print first row of values:
+  /*  print first row of values:  */
   printf("%2.4s","              ");
   for(i =0; i< 16; i++)
   {
