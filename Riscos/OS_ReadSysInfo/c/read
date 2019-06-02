@@ -1,0 +1,14 @@
+#include<stdio.h>
+#include <kernel.h>
+int r[10];
+int main()
+{
+_kernel_swi_regs reg;
+reg.r[0]= 0x0E; // ii2 bus detection
+_kernel_oserror *p;
+_kernel_swi(0x58,&reg,&reg);
+printf("number of busses: %i\n",reg.r[0]);
+p = _kernel_last_oserror();
+printf("Error is: %s ", p->errmess);
+return 0;
+}
