@@ -22,40 +22,62 @@ int main(void) {
   int i;
   int rowc =0;
   int tabc =00;
-  /*  print first row of values:  */
-  printf("%2.4s","              ");
-  for(i =0; i< 16; i++)
+  int bus, buscount =0;
+
+  _kernel_swi_regs reg;
+  reg.r[0]= 0x0E; // ii2 bus detection
+  _kernel_oserror *p;
+  p = _kernel_swi(0x58,&reg,&reg); //detect amount of busses.
+  if(p == NULL)
   {
-      printf("%2.1x  ",i);
-  }
-  printf("\n%2.3s ","00: "); // first hex value of second table row.
-  for(i =0x0; i<127 ; i++)
-  {
-      _kernel_swi_regs in, out;
-      transfer.d.data = buffer;
-      transfer.len=1;
-      transfer.addr = i<<1;
-      buffer[0]=0;
-      in.r[0]=(int)&transfer;
-      in.r[1]=1;
-      err=_kernel_swi(OS_IICOp, &in, &out);
-      transfer.addr = (i << 1) | 1;
-      transfer.d.data = buffer;
-      transfer.len=7;
-      in.r[0]=(int)&transfer;
-      in.r[1]=1;
-      err=_kernel_swi(OS_IICOp, &in, &out);
-      if(rowc == 16){
-        tabc+= 10;
-        printf("\n\n%0.2i: ",tabc);
-        rowc =0;
+      buscount = reg.r[0];
+      for(bus = 0; bus <= buscount; bus++)
+      {
+      printf("\n\n Bus: %i\n\n ", bus);
+      tabc =0;
+      rowc =0;
+       /*  print first row of values:  */
+       printf("%2.4s","              ");
+       for(i =0; i< 16; i++)
+       {
+         printf("%2.1x  ",i);
+       }
+        printf("\n%2.3s ","00: "); // first hex value of second table row.
+        for(i =0x0; i<127 ; i++)
+        {
+              _kernel_swi_regs in, out;
+              transfer.d.data = buffer;
+              transfer.len=1;
+              transfer.addr = i<<1;
+              buffer[0]=0;
+              in.r[0]=(int)&transfer;
+              in.r[1]=1;
+              err=_kernel_swi(OS_IICOp, &in, &out);
+              transfer.addr = (i << 1) | 1;
+              transfer.d.data = buffer;
+              transfer.len=7;
+              in.r[0]=(int)&transfer;
+              in.r[1]=bus;
+              err=_kernel_swi(OS_IICOp, &in, &out);
+              if(rowc == 16){
+                tabc+= 10;
+                printf("\n\n%0.2i: ",tabc);
+                rowc =0;
+              }
+              if (err != NULL){
+                printf("%2.2s  ","--");
+              }
+              else{
+                printf("%2.2x  ",i);
+              }
+              rowc++;
+          }
+
       }
-      if (err != NULL){
-        printf("%2.2s  ","--");
-      }
-      else{
-        printf("%2.2x  ",i);
-      }
-      rowc++;
-  }
+
+    }
+    else
+    {
+      printf("No i2c busses detected!\n error: %s",p->errmess);
+    }
 }
