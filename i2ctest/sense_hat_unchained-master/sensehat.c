@@ -73,7 +73,8 @@ unsigned char ucTemp[32];
 char filename[32];
  
 	sprintf(filename, "/dev/i2c-%d", iChannel);
-	if ((file_led = open(filename, O_RDWR)) < 0)
+    printf("-----------------%d------------------\n",O_RDWR);
+    if ((file_led = open(filename, O_RDWR)) < 0)
 	{
 		fprintf(stderr, "Failed to open the i2c bus; need to run as sudo?\n");
 		return -1;
