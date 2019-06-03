@@ -16,7 +16,6 @@ typedef struct iic_transfer {
 iic_transfer transfer;
 uint8_t buffer[8]= {0};
 _kernel_oserror *err;
-
 int main(void) {
   int i;
   int rowc =0;
