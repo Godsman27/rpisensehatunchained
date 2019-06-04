@@ -81,7 +81,7 @@ case_different:			@ if
 	mov	r8, #0 
 	str r8, [r6]	
 	
-	beq end
+	beq end				@ branch to end if eq
 
 	
 	
