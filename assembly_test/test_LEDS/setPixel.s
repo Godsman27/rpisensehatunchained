@@ -11,10 +11,12 @@ return:	.word 0
 
 .balign 4
 file:	.asciz "/dev/i2c-1"
+
 .balign 4
-flag:	.asciz "O_RDWR"
+O_RDWR:	.byte 2
+
 .balign 4
-slave:	.asciz "I2C_SLAVE"
+I2C_SLAVE:	.word 0x0703 
 
 .text
 .global main
@@ -24,10 +26,10 @@ main:
 	ldr r7, =return
 	str lr, [r7]
 
-	mov	r0, #0
-	mov r1, #0
+	mov	r0, #4
+	mov r1, #4
 
-	mov r2, #0xFFFF
+	mov r2, #0xF800
 	mov r3, #1
 
 
@@ -85,7 +87,7 @@ case_different:			@ if
 	beq end
 
 	ldr r0, =file
-	ldr r1, =flag
+	ldr r1, =O_RDWR
 	mov r7, #5
 	swi 0
 
