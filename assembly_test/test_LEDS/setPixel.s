@@ -27,7 +27,7 @@ main:
 	mov	r0, #0
 	mov r1, #0
 
-	mov r2, #40
+	mov r2, #0xFFFF
 	mov r3, #1
 
 
@@ -73,9 +73,14 @@ case_different:			@ if
 	str r8, [r1, #+16]
 
 		
-	mov	r8, #1 
+	mov	r8, #0 
 	str r8, [r6]	
 	
+@ 	mov r1, r0
+@	ldr r0, =message1
+@	bl	printf
+
+
 	
 	beq end
 
@@ -86,25 +91,20 @@ case_different:			@ if
 
 	mov r4, r0
 
-	mov r1, #0x703
+	mov r1, #0x706
 	mov r2, #0x46
 	bl	ioctl
 
 
 
-	mov r0, r4				@ 		not needed anymore
+	mov r0, r4			@ put fd in r0
 	ldr r1, =LEDArray	@ array with led information
 	mov r2, #193		@ 
 	mov r7, #4
 	swi 0
 
-
-	mov r1, r0
-	ldr r0, =message1
-	bl	printf
-
-
 	
+		
 
 end:
 	mov r0, r3
