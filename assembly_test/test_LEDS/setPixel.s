@@ -13,7 +13,8 @@ return:	.word 0
 file:	.asciz "/dev/i2c-1"
 .balign 4
 flag:	.asciz "O_RDWR"
-
+.balign 4
+slave:	.asciz "I2C_SLAVE"
 
 .text
 .global main
@@ -33,15 +34,14 @@ main:
 	
 		@ if r0 < 0 && r0 >=8	
 	cmp r0, #0			
-	blo case_true
+	blo end
 	cmp r0, #8
-	bhs case_true
+	bhs end
 other:					@ if r1 < 0 && r1 >= 8
 	cmp r1, #0
-	blo	case_true
+	blo	end
 	cmp r1, #8
-	bhs case_true
-
+	bhs end
 	
 
 
@@ -57,8 +57,6 @@ case_different:			@ if
 	add r1, r1, #1
 
 	
-
-
 	cmp	r3, #0
 
 	mov	r8, r2, LSR #10
@@ -84,18 +82,26 @@ case_different:			@ if
 	ldr r0, =file
 	ldr r1, =flag
 	mov r7, #5
-	svc 0
-	
+	swi 0
+
+	mov r4, r0
+
+	mov r1, #0x703
+	mov r2, #0x46
+	bl	ioctl
+
+
+
+	mov r0, r4				@ 		not needed anymore
+	ldr r1, =LEDArray	@ array with led information
+	mov r2, #193		@ 
+	mov r7, #4
+	swi 0
+
+
 	mov r1, r0
 	ldr r0, =message1
 	bl	printf
-
-
-	@mov r0, #3 		not needed anymore
-	ldr r1, =LEDArray	@ array with led information
-	mov r2, #193		@ 
-	mov r7, #5
-	svc 0
 
 
 	
@@ -106,16 +112,12 @@ end:
 	ldr lr, [r7]
 	bx	lr
 	
-case_true:				@ else
-	mov r0, r3
-	ldr r7, =return
-	ldr lr, [r7]	
-	bx 	lr	
+	
 
 
 
 
 
 .global	printf
-
+.global ioctl
 
