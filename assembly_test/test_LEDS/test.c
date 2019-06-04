@@ -7,6 +7,7 @@
 #include <linux/i2c-dev.h>
 
 
+
 static unsigned char LEDArray[193];
 
 int main() {

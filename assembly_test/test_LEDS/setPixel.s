@@ -1,22 +1,25 @@
 
 
 .data
-LEDArray: 	.skip 193
+LEDArray: 	.skip 	193
 
-.balign 4
-message1:	.asciz "Number:\t%d\n"
 
-.balign 4
-return:	.word 0
+message1:	.asciz 	"Number:\t%x\n"
 
-.balign 4
-file:	.asciz "/dev/i2c-1"
 
-.balign 4
-O_RDWR:	.byte 2
+return:		.word 	0
 
-.balign 4
-I2C_SLAVE:	.word 0x0703 
+
+file:		.asciz 	"/dev/i2c-1"
+
+
+O_RDWR:		.word 	0x02
+
+
+I2C_SLAVE:	.word 	0x0703 
+
+
+ADDRESS:	.word	0x46
 
 .text
 .global main
@@ -26,8 +29,8 @@ main:
 	ldr r7, =return
 	str lr, [r7]
 
-	mov	r0, #4
-	mov r1, #4
+	mov	r0, #3
+	mov r1, #2
 
 	mov r2, #0xF800
 	mov r3, #1
@@ -78,37 +81,48 @@ case_different:			@ if
 	mov	r8, #0 
 	str r8, [r6]	
 	
-@ 	mov r1, r0
-@	ldr r0, =message1
-@	bl	printf
-
-
-	
 	beq end
 
-	ldr r0, =file
-	ldr r1, =O_RDWR
-	mov r7, #5
+	
+	
+	ldr r0, =file		@ r0 = &file
+	ldr r1, =O_RDWR		@ r1 = &O_RDWR	
+	ldr	r1,	[r1]		@ r1= *r1
+				
+	mov r7, #5			@ system call for open
 	swi 0
+	
+	mov r4, r0			@ put file descriptor in r0
+	
 
-	mov r4, r0
-
-	mov r1, #0x706
-	mov r2, #0x46
-	bl	ioctl
-
-
+	ldr r1, =I2C_SLAVE	@ r1 = &I2C_SLAVE
+	ldr	r1, [r1]		@ r1 = *r1
+	ldr r2, =ADDRESS	@ r2 = &ADDRESS
+	ldr	r2, [r2]		@ r2 = *r2
+		
+	mov r7, #0x36		@ system call ioctl
+	swi	0
+	
 
 	mov r0, r4			@ put fd in r0
+
+	
 	ldr r1, =LEDArray	@ array with led information
-	mov r2, #193		@ 
-	mov r7, #4
+	mov r2, #193		@ size of the array
+	mov r7, #4			@ system call write
 	swi 0
+	
+	@mov r1, r0			@ printf for debugging
+	@ldr r0, =message1
+	@bl printf
+
 
 	
 		
 
 end:
+	mov r7 , #6			@ system call close
+	swi	0
 	mov r0, r3
 	ldr r7, =return
 	ldr lr, [r7]
@@ -121,5 +135,5 @@ end:
 
 
 .global	printf
-.global ioctl
+
 
