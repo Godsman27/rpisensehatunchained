@@ -29,10 +29,12 @@ main:
 	ldr r7, =return
 	str lr, [r7]
 
-	mov	r0, #3
-	mov r1, #2
+	mov	r1, #0
+	mov r0, #0
 
-	mov r2, #0xF800
+	mov r2, #0xF8
+	lsl r2, #8
+
 	mov r3, #1
 
 
@@ -58,6 +60,7 @@ case_different:			@ if
 			@ i = (y * 24) + x
 	mov r8, #24
 	mla	r1, r8, r1, r0
+	
 	add r1, r6, r1		
 	add r1, r1, #1
 
@@ -77,9 +80,13 @@ case_different:			@ if
 	and r8, #0x3e
 	str r8, [r1, #+16]
 
-		
-	mov	r8, #0 
-	str r8, [r6]	
+@	ldr r1, [r1]
+@	ldr	r0, =message1
+@	bl printf
+
+
+@	mov	r8, #0 
+@	str r8, [r6]	
 	
 	beq end				@ branch to end if eq
 
