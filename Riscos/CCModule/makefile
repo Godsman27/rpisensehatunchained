@@ -1,10 +1,10 @@
 # Final targets:
-@.test: run
-        link -o cmodule -m o.cmodule o.cmodulehdr c:o.stubs o.test
+@.target: run
+        link -o Modsensehat -m o.cmodule o.cmodulehdr c:o.stubs o.test
         @echo done
 @.run:
 	cmhg cmhg.CModuleHdr o.cmodulehdr h.cmodulehdr
-	cc -c -zM c.Cmodule c.code
+	cc -c -zM c.Cmodule c.sensehat
 @.clean:
 	*wipe ~V ~C o.*
 	*remove Cmodule
