@@ -1,12 +1,25 @@
 #include <stdio.h>			//Needed for debugging purpuses
 #include <string.h>			//Needed for memcpy functions
-#include <kernel.h>
+#include "kernel.h"
 #include "sensehat.h"
 #include "registers.h"			//register definitions for hardware of the rpi sensehat
+#include "swi.h"
 
-static int ReadSlave(unsigned char regi, unsigned char* buffer, int length);
-static int WriteSlave(unsigned char regi, unsigned char* buffer, int length);
+typedef struct iic_transfer {
+  unsigned addr:8;
+  unsigned :21;
+  unsigned riscos_retry:1;
+  unsigned checksumonly:1;
+  unsigned nostart:1;
+  union {
+      unsigned checksum;
+      void *data;
+  } d;
+  unsigned len;
+} iic_transfer;
 
+static int ReadSlave(int device, unsigned char regi, unsigned char* buffer, int length);
+static int WriteSlave(int device, unsigned char regi, unsigned char* buffer, int length);
 static unsigned char LEDmatrix[192] = {0};
 
 // humidity/temp calibration values
@@ -14,38 +27,76 @@ static int H0_rH_x2, H1_rH_x2, T0_degC_x8;
 static int T1_degC_x8, H0_T0_OUT;
 static int H1_T0_OUT, T0_OUT, T1_OUT;
 
-static int ReadSlave(unsigned char regi, unsigned char* buffer,int length)
+
+static int WriteSlave(unsigned int device, unsigned char regi ,unsigned char* buffer,int length)
+{
+        //----- WRITE BYTES -----
+	unsigned char buf[255];
+	int rc;
+	iic_transfer transfer;
+	if(length> 255 || length < 1 || buffer == NULL||device >127 || device <<0) // buf[0] place in the array is reserved for the register adress so only 511 chars can be send at the most.
+	{
+		return -1;
+	}
+	buf[0] = regi; // first send the register to write to.
+	memcpy(&buf[1],buffer,length);
+	length++; //there is one more byte that needs to be written (namely the register).
+	_kernel_swi_regs in, out;
+	in.r[0]=(int)&transfer;
+	in.r[1]=1;
+	transfer.addr = (device << 1); //write data
+	transfer.d.data = buf;
+	transfer.len=length;
+	in.r[0]=(int)&transfer;
+	in.r[1]=1; // one transfer to bus 0
+	err=_kernel_swi(OS_IICOp, &in, &out);
+	if(err!= NULL)
+	{
+		return -1;
+	}
+	return 1; //data was written with suc6
+}
+
+static int ReadSlave(int device,unsigned char regi, unsigned char* buffer,int length)
 {
 	if(buffer == NULL)
 	{
 //		printf("empty buffer u fool\n");
 		return -1;
 	}
-
-	int rc = write(file_i2c, &regi, 1); // write the register adress that we want to read first.
+  _kernel_swi_regs in, out;
+  unsigned char buf[255];
+	buf[0]=regi;
+	in.r[0]=(int)&transfer;
+	in.r[1]=1;
+	transfer.addr = (device << 1); //write data
+	transfer.d.data = buf;
+	transfer.len=1;
+	in.r[0]=(int)&transfer;
+	in.r[1]=1; // one transfer to bus 0
+	err=_kernel_swi(OS_IICOp, &in, &out); // write regiser to read to the device.
 	//printf("write %i bytes from register %x\n",rc, regi);
-	if(rc == 1)
+	if(err == NULL)
 	{
-		rc =  read(file_i2c, buffer, length);
-		//printf("Read %i bytes from register ox%x\n",rc,regi);
-	}
+    in.r[0]=(int)&transfer;
+  	in.r[1]=1;
+  	transfer.addr = (device << 1)|1; //write data
+  	transfer.d.data = buffer;
+  	transfer.len=length;
+  	in.r[0]=(int)&transfer;
+  	in.r[1]=1; // one transfer to bus 0
+    err=_kernel_swi(OS_IICOp, &in, &out); // write regiser to read to the device.
+    if(err != NULL)
+    {
+      printf("Reading error %s\n",err->errmess);
+    }
+  }
+  else
+  {
+    printf("Sending error: %s\n",err->errmess);
+  }
         //----- READ BYTES -----
-        return rc;
-}
-
-static int WriteSlave(unsigned char regi ,unsigned char* buffer,int length)
-{
-        //----- WRITE BYTES -----
-	unsigned char buf[512];
-	int rc;
-	if(length> 510 || length < 1 || buffer == NULL) // buf[0] place in the array is reserved for the register adress so only 511 chars can be send at the most.
-	{
-		return -1;
-	}
-	buf[0] = regi; // first send the register to write to.
-	memcpy(&buf[1],buffer,length);
-        int out = write(file_i2c, buf, length+1);
-	return out-1; //remove one from the written bytes cause of the adress that was added to the start of the data.
+        return 1;
 }
 
 int InitRpiSense(int bus)
@@ -65,6 +116,7 @@ int InitDisplay(int bus)
 int InitHTS(int bus)
 {
   int rc;
+  unsigned char buf[32] = {0};
 	// activate huminity sensor.
 	rc = ReadSlave(HT_AV_CONF,buf,1); // read the AV_CONF of the hum sensor so we can adjust the settings
 	//printf("Recieved bytes from AV_CONF_READ: %i\n",rc);
@@ -73,7 +125,7 @@ int InitHTS(int bus)
 		unsigned char AV_CONF_R = buf[0];
 		AV_CONF_R &= 0xC0; // keep reserved bits
 		AV_CONF_R |= 0x38; //
-		WriteSlave(HT_AV_CONF,&AV_CONF_R,1);
+		WriteSlave(HTS221,HT_AV_CONF,&AV_CONF_R,1);
 	}
 	else
 	{
@@ -81,8 +133,8 @@ int InitHTS(int bus)
 	}
 	buf[0] =0x0; // clear the used buffer place to be sure that its empty.
 	//read control registers all at once.
-	rc = ReadSlave(HT_CTRL_REG1+CONTIRW,buf,3); //read control register 1 and 2.
-	if(rc==3)
+	rc = ReadSlave(HTS221,HT_CTRL_REG1+CONTIRW,buf,3); //read control register 1 and 2.
+	if(rc==1)
 	{
 		unsigned char CTRL_REG1_R = buf[0];
 		CTRL_REG1_R &= 0x78; // keep the reserved bits that must stay the same
@@ -92,7 +144,7 @@ int InitHTS(int bus)
 		//write the changed registers back to sensor.
 		buf[0] = CTRL_REG1_R;
 		buf[1] = CTRL_REG2_R;
-		WriteSlave(HT_CTRL_REG1+CONTIRW,buf,3);
+		WriteSlave(HTS221,HT_CTRL_REG1+CONTIRW,buf,3);
 	}
 	else
 	{
@@ -100,8 +152,8 @@ int InitHTS(int bus)
 	}
 	//Now to calibrate the sensor
 	// read all calibration values in one go.
-	rc = ReadSlave(HT_H0_rH_x2+CONTIRW, buf, 16); // buf[4], buf[8], buf[9] are reserved registers and containt no calibration values.
-	if(rc == 16)
+	rc = ReadSlave(HTS221,HT_H0_rH_x2+CONTIRW, buf, 16); // buf[4], buf[8], buf[9] are reserved registers and containt no calibration values.
+	if(rc == 1)
 
 	{
 		H0_rH_x2 = buf[0];
@@ -145,27 +197,28 @@ int InitLPSH(int bus)
 	buf[0] = 0xC4; // Turn on and set 25Hz update, wait with update till LSB and MSB are read form registers.
 	buf[1] = 0x50; // Activate FIFO registers and use MEAN_MODE_DEC
 	buf[2] = 0xDF; // Set MEAN_MODE for the FIFO registers and set sample rate to 32.
-	WriteSlave(PRESS_CTRL_1 + CONTIRW , buf, 2); //Write to ctrl register 1 and 2.
-	WriteSlave(PRESS_FIFO_CTRL, &buf[2],1); // write the fifo register.
+	WriteSlave(LPSH25H,PRESS_CTRL_1 + CONTIRW , buf, 2); //Write to ctrl register 1 and 2.
+	WriteSlave(LPSH25H,PRESS_FIFO_CTRL, &buf[2],1); // write the fifo register.
  	return 1;
 }
 
 int InitLSM(int bus)
 {
+  unsigned char buf[5] = {0};
 	// Init magnetometer
 	buf[0] = 0x48; // output data rate/power mode
 	buf[1] = 0x00; // default scale
 	buf[2] = 0x00; // continuous conversion
 	buf[3] = 0x08; // high performance mode
-	WriteSlave(MAG_CTRL_1 +CONTIRW, buf, 4);
+	WriteSlave(LSM9DS1M, MAG_CTRL_1 +CONTIRW, buf, 4);
 
 	// Init accelerometer
 	buf[0] = 0x60; // 119hz accel
-	WriteSlave(LSMGA_CTRL_6_XL, buf, 1);
+	WriteSlave(LSM9DS1,LSMGA_CTRL_6_XL, buf, 1);
 	buf[0] = 0x38; // enable gyro on all axes
-	WriteSlave(LSMGA_CTRL_4, buf, 1);
+	WriteSlave(LSM9DS1,LSMGA_CTRL_4, buf, 1);
   buf[0] = 0x28; // data rate + full scale + bw selection
-  WriteSlave(LSMGA_CTRL_1_G, buf, 1); // gyro ctrl_reg1
+  WriteSlave(LSM9DS1,LSMGA_CTRL_1_G, buf, 1); // gyro ctrl_reg1
 	return 1;
 }
 
@@ -180,7 +233,7 @@ int SetPixel(int x, int y, uint16_t color, int bUpdate)
 		LEDmatrix[i+16] = (uint8_t)((color<<1) & 0x3e); // Blue
 		if (bUpdate)
 		{
-			WriteSlave(0 ,LEDmatrix, 192); // have to send the whole array at once,starting from register 0
+			WriteSlave(ATTINY,0 ,LEDmatrix, 192); // have to send the whole array at once,starting from register 0
 		}
 		return 1;
 	}
@@ -213,7 +266,7 @@ int ReadTemp(double *temp_out)
 	double T0_degC, T1_degC;
 	double tmp;
 	 //read both output registrs for the temperature;
-	rc = ReadSlave(HT_TEMP_OUT_L + CONTIRW, buf, 2);
+	rc = ReadSlave(HTS221,HT_TEMP_OUT_L + CONTIRW, buf, 2);
 	if (rc == 2)
 	{
 		T_out = buf[0] + (buf[1] << 8); //create the 10 bit output value
@@ -240,7 +293,7 @@ int ReadHumidity(double* hum_out)
 	int H_T_out;
 	double H0_rh, H1_rh;
 	double tmp;
-		rc = ReadSlave(HT_HUMI_OUT_L, buf, 2);
+		rc = ReadSlave(HTS221,HT_HUMI_OUT_L + CONTIRW, buf, 2);
 		if (rc == 2)
 		{
 			H_T_out = buf[0] + (buf[1] << 8);
@@ -260,7 +313,7 @@ int ReadPressure(double * press_out)
 {
 	unsigned char buffer[5];
 	int rc, P;
-	rc = ReadSlave(PRESS_OUT_P_XL + CONTIRW, buffer, 3); // Read the lowest part, middle part and highest part of the pressure output registers.
+	rc = ReadSlave(LPSH25H,PRESS_OUT_P_XL + CONTIRW, buffer, 3); // Read the lowest part, middle part and highest part of the pressure output registers.
 	if (rc == 3)
 	{
 			P = buffer[0] + (buffer[1]<<8) + (buffer[2]<<16);
@@ -275,7 +328,7 @@ int ReadPtemp (double *temp_out)
 	unsigned char buffer[3];
 	int rc, T;
 	//printf("Reading temp\n");
-		rc = ReadSlave(PRESS_OUT_T_L+ CONTIRW, buffer, 2);
+		rc = ReadSlave(LPSH25H,PRESS_OUT_T_L+ CONTIRW, buffer, 2);
 		//printf("Read %i bytes from pressure sensor\n",rc);
 		if (rc == 2)
 		{
@@ -293,7 +346,7 @@ int ReadAccel(int* accel_x, int* accel_y, int* accel_z)
 	unsigned char buffer[8];
 	int rc;
 
-	rc = ReadSlave(ACCEL_OUT_X_L+CONTIRW, buffer, 6);
+	rc = ReadSlave(LSM9DS1,ACCEL_OUT_X_L+CONTIRW, buffer, 6);
 	printf("RC read Accel is: %i\n",rc);
 	if (rc == 6)
 	{
@@ -316,7 +369,7 @@ int ReadGyro(int* gyro_x, int* gyro_y, int* gyro_z)
 {
 	unsigned char buffer[8];
 	int rc;
-	rc = ReadSlave(GYRO_OUT_X_L+CONTIRW, buffer, 6);
+	rc = ReadSlave(LSM9DS1,GYRO_OUT_X_L+CONTIRW, buffer, 6);
 	printf("RC read gyro is: %i\n",rc);
 	if (rc == 6)
 	{
@@ -332,7 +385,7 @@ int ReadMagnet(int* mag_x, int* mag_y, int *mag_z)
 {
 	unsigned char buffer[8];
 	int rc;
-	rc = ReadSlave(MAG_OUT_X_L + CONTIRW, buffer, 6);
+	rc = ReadSlave(LSM9DS1M,MAG_OUT_X_L + CONTIRW, buffer, 6);
 	//printf("RC read magnet is: %i\n",rc);
 	if (rc == 6)
 	{
@@ -354,7 +407,7 @@ unsigned char ReadJoystick(void)
 {
 	unsigned char buf[2];
 	int rc;
-		rc = ReadSlave(0xf2, buf, 1);
+		rc = ReadSlave(ATTINY,0xf2, buf, 1);
 		if (rc == 1)
 		return buf[0];
 }
