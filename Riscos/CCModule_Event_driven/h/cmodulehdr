@@ -50,6 +50,19 @@ _kernel_oserror *tm_initialise(const char *cmd_tail, int podule_base, void *pw);
 
 
 /*
+ * Finalisation code
+ * =================
+ *
+ * Return NULL if your finalisation succeeds. Otherwise return a pointer to
+ * an error block if your finalisation handler does not wish to die (e.g.
+ * toolbox modules return a 'Task(s) active' error).
+ * fatal, podule and pw are the values of R10, R11 and R12 (respectively)
+ * on entry to the finalisation code.
+ */
+_kernel_oserror *events_final(int fatal, int podule, void *pw);
+
+
+/*
  * Service call handler
  * ====================
  *
@@ -127,5 +140,32 @@ _kernel_oserror *tm_cmd(const char *arg_string, int argc, int cmd_no, void *pw);
 #define error_BAD_SWI ((_kernel_oserror *) -1)
 
 _kernel_oserror *tm_swi(int swi_offset, _kernel_swi_regs *r, void *pw);
+
+
+/*
+ * Event handler
+ * =============
+ *
+ * This is the name of the event handler entry veneer compiled by CMHG.
+ * Use this name as an argument to, for example, SWI OS_Claim, in
+ * order to attach your handler to EventV.
+ */
+extern void register_event(void);
+
+/*
+ * This is the handler function you must write to handle the event for
+ * which register_event is the veneer function.
+ *
+ * Return 0 if you wish to claim the event.
+ * Return 1 if you do not wish to claim the event.
+ *
+ * 'r' points to a vector of words containing the values of R0-R9 on
+ * entry to the veneer. If r is updated, the updated values will be
+ * loaded into R0-R9 on return from the handler.
+ *
+ * pw is the private word pointer ('R12') value with which the event
+ * entry veneer is called.
+ */
+int event_handler(_kernel_swi_regs *r, void *pw);
 
 #endif

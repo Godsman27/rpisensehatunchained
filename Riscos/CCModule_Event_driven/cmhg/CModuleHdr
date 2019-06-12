@@ -52,3 +52,7 @@ command-keyword-table: tm_cmd
 
   tm2(min-args:1, max-args:1,
       help-text: "Syntax\ttm2 <integer>\n")
+
+finalisation-code: events_final
+
+event-handler: register_event/event_handler 10

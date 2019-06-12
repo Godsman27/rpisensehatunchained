@@ -80,7 +80,7 @@ static int ReadSlave(int device,unsigned char regi, unsigned char* buffer,int le
 	{
     in.r[0]=(int)&transfer;
   	in.r[1]=1;
-  	transfer.addr = (device << 1)|1; //write data
+  	transfer.addr = (device << 1)|1; //read data
   	transfer.d.data = buffer;
   	transfer.len=length;
   	in.r[0]=(int)&transfer;
@@ -224,16 +224,20 @@ int InitLSM(int bus)
 
 int SetPixel(int x, int y, uint16_t color, int bUpdate)
 {
+  unsigned char buf;
 	int i;
 	if (x >= 0 && x < 8 && y >= 0 && y < 8)
 	{
 		i = (y*24)+x; // offset into array
-		LEDmatrix[i] = (uint8_t)((color>>10) & 0x3e); // Red
-		LEDmatrix[i+8] = (uint8_t)((color>>5) & 0x3f); // Green
-		LEDmatrix[i+16] = (uint8_t)((color<<1) & 0x3e); // Blue
+    buf = (uint8_t)((color>>10) & 0x3e); // Red
+    WriteSlave(ATTINY,i ,&buf, 1);
+    buf = (uint8_t)((color>>5) & 0x3f); // Green
+    WriteSlave(ATTINY,(i+8) ,&buf, 1);
+    buf = (uint8_t)((color<<1) & 0x3e); //blue
+    WriteSlave(ATTINY,(i+16) ,&buf, 1);
 		if (bUpdate)
 		{
-			WriteSlave(ATTINY,0 ,LEDmatrix, 192); // have to send the whole array at once,starting from register 0
+			WriteSlave(ATTINY,0 ,LEDmatrix, 2); // have to send the whole array at once,starting from register 0
 		}
 		return 1;
 	}

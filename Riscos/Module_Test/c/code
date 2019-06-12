@@ -1,0 +1,56 @@
+#include <stdio.h>
+#include <stdint.h>
+#include "kernel.h"
+#include "swis.h"
+#include "oslib/hal.h"
+
+#define R 0xF800
+#define G 0x07E0
+#define Z 0x0000
+#define B 0x001F
+#define W 0xFFFF
+uint16_t closed[64] =
+{//
+R,W,W,W,W,W,W,R,//
+W,R,W,W,W,W,R,W,//
+W,W,R,W,W,R,W,W,//
+W,W,W,R,R,W,W,W,//
+W,W,W,R,R,W,W,W,//
+W,W,R,W,W,R,W,W,//
+W,R,W,W,W,W,R,W,//
+R,W,W,W,W,W,W,R};
+uint16_t open[64] =
+{//
+G,W,W,W,W,W,W,W,//
+W,G,W,W,W,W,W,W,//
+W,W,G,W,W,W,W,W,//
+W,W,W,G,W,W,W,W,//
+W,W,W,W,G,W,W,G,//
+W,W,W,W,W,G,W,G,//
+W,W,W,W,W,W,G,G,//
+W,W,W,W,G,G,G,G
+};
+int main()
+{
+
+_kernel_oserror *err;
+int i =0;
+  while(1)
+  {
+       _kernel_swi_regs in, out;
+       hal_counter_delay(100000);
+       in.r[0] = (int) &open;
+       in.r[1] = 64;
+       err =_kernel_swi(0x88000,&in,&out);
+       if(err!=NULL)
+       {
+          printf("%x: %s",err->errnum,err->errmess);
+       }
+       hal_counter_delay(100000);
+       in.r[0] = (int) &closed;
+       in.r[1] = 64;
+       _kernel_swi(0x88000,&in,&out);
+       i++;
+  }
+  return 0;
+}

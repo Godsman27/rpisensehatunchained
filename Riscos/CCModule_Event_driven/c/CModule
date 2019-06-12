@@ -2,6 +2,7 @@
 #include "kernel.h"
 #include "cmodulehdr.h"
 #include "sensehat.h"
+#include "swis.h"
 #include <stdint.h>
 /*
  * An example of a module written in C - for pedagogic purposes only!
@@ -43,12 +44,60 @@
 #define  TM                     "Sensehat_Matrix"
 #define  UNKNOWN_CMD_SERVICE    4
 #define  UNUSED(x)              (x = x)
+#define EventV 16
+#define EnableEvent 14
+#define DisableEvent 13
+#define MouseClick 10
+#define Keypress 11
+#define R 0xF800
+#define G 0x07E0
+#define Z 0x0000
+#define B 0x001F
+#define W 0xFFFF
+#define Y 0xFFE0
+#define CHECKBIT(var,pos) ((var)&(1<<(pos)))
 
 static _kernel_oserror tm_error_pixel = {0x88001,"SetPixel failed!"};
 static _kernel_oserror tm_error_pattern = {0x88001,"Pattern failed!"};
-static int unknown_cmd_count;
-static int other_service_call_count;
+int pattern_cycle =0;
+static uint16_t closed[64] =
+{//
+R,W,W,W,W,W,W,R,//
+W,R,W,W,W,W,R,W,//
+W,W,R,W,W,R,W,W,//
+W,W,W,R,R,W,W,W,//
+W,W,W,R,R,W,W,W,//
+W,W,R,W,W,R,W,W,//
+W,R,W,W,W,W,R,W,//
+R,W,W,W,W,W,W,R};
 
+static uint16_t open[64] =
+{//
+G,W,W,W,W,W,W,W,//
+W,G,W,W,W,W,W,W,//
+W,W,G,W,W,W,W,W,//
+W,W,W,G,W,W,W,W,//
+W,W,W,W,G,W,W,G,//
+W,W,W,W,W,G,W,G,//
+W,W,W,W,W,W,G,G,//
+W,W,W,W,G,G,G,G
+};
+
+static uint16_t voorrang[64] =
+{//
+Z,Z,Z,W,W,Z,Z,Z,//
+Z,Z,W,Y,Y,W,Z,Z,//
+Z,W,Y,Y,Y,Y,W,Z,//
+W,Y,Y,Y,Y,Y,Y,W,//
+W,Y,Y,Y,Y,Y,Y,W,//
+Z,W,Y,Y,Y,Y,W,Z,//
+Z,Z,W,Y,Y,W,Z,Z,//
+Z,Z,Z,W,W,Z,Z,Z
+};
+
+static void claim_release(int claim, void *pw);
+static void claim_free_events(int claim,void *pw);
+static void add_remove(int add);
 _kernel_oserror *tm_swi(int swi_no, _kernel_swi_regs *r, void *private_word)
 {
     UNUSED(private_word);
@@ -109,20 +158,102 @@ void tm_service(int service_number, _kernel_swi_regs *r, void *private_word)
  *  as this one does. Therefore we merely count what's happening and
  * print it out when the TestCModule's SWI is called.
  */
-    if (service_number == UNKNOWN_CMD_SERVICE)
-        ++unknown_cmd_count;
-    else
-        ++other_service_call_count;
 }
 
 _kernel_oserror *tm_initialise(const char *cmd_tail, int podule_base, void *private_word)
 {
     UNUSED(cmd_tail);
     UNUSED(podule_base);
-    UNUSED(private_word);
-    unknown_cmd_count = other_service_call_count = 0;
+    UNUSED(cmd_tail);
+    UNUSED(podule_base);
+    claim_free_events(1,private_word);
     return NULL;
 }
+
+/* the claim/free functions... */
+
+
+static void claim_release(int claim, void *pw)
+{
+  _kernel_swi_regs regs;
+  regs.r[0] = EventV;
+  regs.r[1] = (int) register_event;
+  regs.r[2] = (int) pw;
+  _kernel_swi(claim ? OS_Claim : OS_Release,&regs,&regs);
+}
+
+static void add_remove(int add)
+{
+  _kernel_swi_regs regs;
+  regs.r[0] = add ? EnableEvent:DisableEvent;
+  regs.r[1] = MouseClick;           /* mouse */
+  _kernel_swi(OS_Byte,&regs,&regs);
+}
+
+static void claim_free_events(int claim,void *pw)
+{
+  if (claim) {
+    claim_release(1,pw);
+    add_remove(1);
+  } else {
+    add_remove(0);
+    claim_release(0,pw);
+  }
+}
+/* finalise... */
+_kernel_oserror *events_final (int fatal, int podule, void *pw)
+{
+  UNUSED(fatal);
+  UNUSED(podule);
+  /* handle low level events */
+  claim_free_events(0,pw);
+  return NULL;
+}
+
+/* the handler itself... */
+int event_handler(_kernel_swi_regs *r,void *pw)
+{
+  UNUSED(pw);
+  /* switch on the event code */
+  switch (r->r[0])
+  {
+      case MouseClick:
+         if(CHECKBIT(r->r[3],0))
+         {
+                     pattern_cycle++;
+                     if(pattern_cycle >2)
+                     {
+                         pattern_cycle = 0;
+                     }
+         }
+         else if(CHECKBIT(r->r[3],2))
+         {
+                     pattern_cycle--;
+                     if(pattern_cycle <0)
+                     {
+                       pattern_cycle =2;
+                     }
+         }
+         switch (pattern_cycle)
+         {
+                case 0:
+                     SetPattern(closed,64);
+                break;
+                case 1:
+                     SetPattern(open,64);
+                break;
+                case 2:
+                     SetPattern(voorrang,64);
+                break;
+                default:
+                break;
+         }
+      default:
+      break;
+  }
+  return 1;
+}
+
 
 int main(int argc, char *argv[])
 {
@@ -132,7 +263,6 @@ int main(int argc, char *argv[])
     {
      pat[i] = 0x0;
     }
-    SetPattern(pat,63);
-    printf("%s: run code entered - ", TM);
+    SetPattern(pat,64);
     return 0;
 }
