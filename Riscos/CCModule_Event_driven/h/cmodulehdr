@@ -12,9 +12,9 @@
 #define CMHG_VERSION 543
 
 #define Module_Title                     "Sensehat_Matrix"
-#define Module_Help                      "Test C Module"
-#define Module_VersionString             "0.00"
-#define Module_VersionNumber             0
+#define Module_Help                      "Sensehat Matrix"
+#define Module_VersionString             "1.11"
+#define Module_VersionNumber             111
 #ifndef Module_Date
 #define Module_Date                      "12 Jun 2019"
 #endif
@@ -63,18 +63,6 @@ _kernel_oserror *events_final(int fatal, int podule, void *pw);
 
 
 /*
- * Service call handler
- * ====================
- *
- * Return values should be poked directly into r->r[n]; the right
- * value/register to use depends on the service number (see the relevant
- * RISC OS Programmer's Reference Manual section for details).
- * pw is the private word (the 'R12' value).
- */
-void tm_service(int service_number, _kernel_swi_regs *r, void *pw);
-
-
-/*
  * Command handler
  * ===============
  *
@@ -113,8 +101,8 @@ void tm_service(int service_number, _kernel_swi_regs *r, void *pw);
 #define configure_TOO_LARGE       ((_kernel_oserror *) 2)
 #define configure_TOO_MANY_PARAMS ((_kernel_oserror *) 3)
 
-#define CMD_tm1                         0
-#define CMD_tm2                         1
+#define CMD_cycle_off                   0
+#define CMD_cycle_on                    1
 
 _kernel_oserror *tm_cmd(const char *arg_string, int argc, int cmd_no, void *pw);
 

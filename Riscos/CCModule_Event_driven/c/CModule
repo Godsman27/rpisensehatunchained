@@ -56,10 +56,15 @@
 #define W 0xFFFF
 #define Y 0xFFE0
 #define CHECKBIT(var,pos) ((var)&(1<<(pos)))
+typedef int osbool;
+
+#define TRUE 1
+#define FALSE !TRUE
 
 static _kernel_oserror tm_error_pixel = {0x88001,"SetPixel failed!"};
 static _kernel_oserror tm_error_pattern = {0x88001,"Pattern failed!"};
 int pattern_cycle =0;
+osbool cycle =TRUE;
 static uint16_t closed[64] =
 {//
 R,W,W,W,W,W,W,R,//
@@ -93,6 +98,16 @@ W,Y,Y,Y,Y,Y,Y,W,//
 Z,W,Y,Y,Y,Y,W,Z,//
 Z,Z,W,Y,Y,W,Z,Z,//
 Z,Z,Z,W,W,Z,Z,Z
+};static uint16_t off[64] =
+{//
+Z,Z,Z,Z,Z,Z,Z,Z,//
+Z,Z,Z,Z,Z,Z,Z,Z,//
+Z,Z,Z,Z,Z,Z,Z,Z,//
+Z,Z,Z,Z,Z,Z,Z,Z,//
+Z,Z,Z,Z,Z,Z,Z,Z,//
+Z,Z,Z,Z,Z,Z,Z,Z,//
+Z,Z,Z,Z,Z,Z,Z,Z,//
+Z,Z,Z,Z,Z,Z,Z,Z
 };
 
 static void claim_release(int claim, void *pw);
@@ -139,25 +154,19 @@ _kernel_oserror *tm_swi(int swi_no, _kernel_swi_regs *r, void *private_word)
 
 _kernel_oserror *tm_cmd(const char *arg_string, int argc, int cmd_no, void *pw)
 {
-    const char *s = arg_string;
     UNUSED(pw);
-    printf("%s: '*' command %d called with %d args - arg string ",
-           TM, cmd_no, argc);
-    while (*s >= ' ' || *s == '\t') putchar(*s++);
-    putchar('\n');
+    switch(cmd_no)
+    {
+       case 0:
+            cycle = FALSE;
+            printf("The led cycling has been turned off\n");
+            break;
+       case 1:
+            cycle = TRUE;
+            printf("The led cycling has been turned on\n");
+            break;
+    }
     return 0;
-}
-
-void tm_service(int service_number, _kernel_swi_regs *r, void *private_word)
-{
-    UNUSED(r);
-    UNUSED(private_word);
-/*
- *  In general, it is a Bad Thing to use printf inside an arbitrary
- *  service call handler (e.g. in one that catches errors - call 6 -
- *  as this one does. Therefore we merely count what's happening and
- * print it out when the TestCModule's SWI is called.
- */
 }
 
 _kernel_oserror *tm_initialise(const char *cmd_tail, int podule_base, void *private_word)
@@ -214,6 +223,8 @@ _kernel_oserror *events_final (int fatal, int podule, void *pw)
 int event_handler(_kernel_swi_regs *r,void *pw)
 {
   UNUSED(pw);
+  if(cycle == TRUE)
+  {
   /* switch on the event code */
   switch (r->r[0])
   {
@@ -251,18 +262,13 @@ int event_handler(_kernel_swi_regs *r,void *pw)
       default:
       break;
   }
+  }
   return 1;
 }
 
 
 int main(int argc, char *argv[])
 {
-    int i;
-    uint16_t pat[64];
-    for(i=0;i<64;i++)
-    {
-     pat[i] = 0x0;
-    }
-    SetPattern(pat,64);
+    SetPattern(off,64);
     return 0;
 }
