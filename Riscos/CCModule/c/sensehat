@@ -1,0 +1,169 @@
+#include <stdio.h>			//Needed for debugging purpuses
+#include <string.h>			//Needed for memcpy functions
+#include "kernel.h"
+#include "sensehat.h"
+#include "registers.h"			//register definitions for hardware of the rpi sensehat
+#include "swis.h"
+
+typedef struct iic_transfer {
+  unsigned addr:8;
+  unsigned :21;
+  unsigned riscos_retry:1;
+  unsigned checksumonly:1;
+  unsigned nostart:1;
+  union {
+      unsigned checksum;
+      void *data;
+  } d;
+  unsigned len;
+} iic_transfer;
+
+static int ReadSlave(unsigned int device, unsigned char regi, unsigned char* buffer, int length);
+static int WriteSlave(unsigned int device, unsigned char regi, unsigned char* buffer, int length);
+static unsigned char LEDmatrix[192] = {0};
+
+_kernel_oserror *err;
+
+static int write_data(unsigned char *buffer, int length)
+{
+    iic_transfer transfer;
+    unsigned char buf[255] = {0};
+    memcpy(buf,buffer,length);
+    _kernel_swi_regs in, out;
+    transfer.addr = (0x46 <<1);
+    transfer.d.data = buf;
+    transfer.len = length;
+    transfer.riscos_retry =1;
+    transfer.nostart =0;
+    in.r[0] = (int)&transfer;
+    in.r[1] = 1+ (0<<24);
+    err= _kernel_swi(OS_IICOp+XOS_Bit, &in, &out);
+    if (err != NULL) {
+      //printf("0 :%s %x\n", err->errmess, err->errnum);
+    }
+    return 0;
+}
+
+static int WriteSlave(unsigned int device, unsigned char regi ,unsigned char* buffer,int length)
+{
+        //----- WRITE BYTES -----
+	unsigned char buf[255];
+	iic_transfer transfer;
+	if(length> 255 || length < 1 || buffer == NULL||device >127 || device <<0) // buf[0] place in the array is reserved for the register adress so only 511 chars can be send at the most.
+	{
+		return -1;
+	}
+	buf[0] = regi; // first send the register to write to.
+	memcpy(&buf[1],buffer,length);
+	length++; //there is one more byte that needs to be written (namely the register).
+	_kernel_swi_regs in, out;
+	transfer.addr = (device << 1); //write data
+	transfer.d.data = buf;
+	transfer.len=length;
+	in.r[0]=(int)&transfer;
+	in.r[1]=1; // one transfer to bus 0
+	err=_kernel_swi(OS_IICOp, &in, &out);
+	if(err!= NULL)
+	{
+		return -1;
+	}
+	return 1; //data was written with suc6
+}
+
+static int ReadSlave(unsigned int device,unsigned char regi, unsigned char* buffer,int length)
+{
+	iic_transfer transfer;
+	if(buffer == NULL)
+	{
+//		printf("empty buffer u fool\n");
+		return -1;
+	}
+        _kernel_swi_regs in, out;
+        unsigned char buf[255];
+	buf[0]=regi;
+	in.r[0]=(int)&transfer;
+	in.r[1]=1;
+	transfer.addr = (device << 1); //write data
+	transfer.d.data = buf;
+	transfer.len=1;
+	in.r[0]=(int)&transfer;
+	in.r[1]=1; // one transfer to bus 0
+	err=_kernel_swi(OS_IICOp, &in, &out); // write regiser to read to the device.
+	//printf("write %i bytes from register %x\n",rc, regi);
+	if(err == NULL)
+	{
+        in.r[0]=(int)&transfer;
+  	in.r[1]=1;
+  	transfer.addr = (device << 1)|1; //write data
+  	transfer.d.data = buffer;
+  	transfer.len=length;
+  	in.r[0]=(int)&transfer;
+  	in.r[1]=1; // one transfer to bus 0
+    err=_kernel_swi(OS_IICOp, &in, &out); // write regiser to read to the device.
+    if(err != NULL)
+    {
+      printf("Reading error %s\n",err->errmess);
+    }
+    else{printf("%s\n",buffer);}
+    }
+    else
+    {
+      printf("Sending error: %s\n",err->errmess);
+    }
+        //----- READ BYTES -----
+        return 1;
+}
+
+
+
+
+int SetPixel(int x, int y, uint16_t color, int bUpdate)
+{
+        unsigned char buf[2];
+	int i;
+	if (x >= 0 && x < 8 && y >= 0 && y < 8)
+	{
+		i = (y*24)+x; // offset into array
+		buf[0] = i;
+		buf[1] = (uint8_t)((color>>10) & 0x3e);
+		write_data(buf,2);
+		buf[0] = i+8;
+		buf[1] = (uint8_t)((color>>5) & 0x3f);
+		write_data(buf,2);
+		buf[0] = i+16;
+		buf[1] = (uint8_t)((color<<1) & 0x3e);
+		write_data(buf,2);
+		return 1;
+	}
+	return 0;
+}
+
+int SetPattern(uint16_t* pattern, int size)
+{
+	if(size != 64 || pattern == NULL)
+	{
+		return -1;
+	}
+	int x,y,i;
+
+	for(y =0;y < 8; y++)
+	{
+		for(x=0;x<8;x++)
+		{
+			i = (y*8) + x;
+			SetPixel(x,y,pattern[i],0);
+		}
+	}
+	SetPixel(0,0,pattern[0],1);
+	return 1;
+}
+
+unsigned char ReadJoystick(void)
+{
+	unsigned char buf[2];
+	int rc;
+	rc = ReadSlave(ATTINY,0xf2, buf, 1);
+	//if (rc == 1)
+	return buf[0];
+}
+

@@ -1,0 +1,22 @@
+help-string: Sensehat_Matrix  1.11
+
+title-string: Sensehat_Matrix
+
+initialisation-code: tm_initialise
+
+module-is-runnable:
+
+swi-chunk-base-number: 0x88000
+
+swi-handler-code: tm_swi
+
+command-keyword-table: tm_cmd
+
+  cycle_off(min-args:0, max-args:0,
+      help-text: "turn led cycle on\n"),
+  cycle_on(min-args:0, max-args:0,
+      help-text: "turn ledcycle off\n")
+
+finalisation-code: events_final
+
+event-handler: register_event/event_handler 10

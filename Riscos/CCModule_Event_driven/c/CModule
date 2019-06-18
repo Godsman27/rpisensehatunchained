@@ -1,0 +1,274 @@
+#include <stdio.h>
+#include "kernel.h"
+#include "cmodulehdr.h"
+#include "sensehat.h"
+#include "swis.h"
+#include <stdint.h>
+/*
+ * An example of a module written in C - for pedagogic purposes only!
+ *
+ * It will respond to SWIs in the range 0x88000 + [0..63], or as otherwise
+ * specified in the Module Header description CModuleHdr.
+ * A SWI number which is 0 mod 4 will cause an error to be returned;
+ * SWI &88001 causes a divide by zero trap; any other value succeeds.
+ *
+ * It also responds to '*' commands tm1 and tm2. Tm1 is intended to take a list
+ * of 0 or more string arguments; tm2 a single integer. But you can type
+ * anything at either. Try also *HELP TM1 and *HELP TM2.
+ *
+ * To build this module, you must first assemble the module header and create
+ * the C header file for the module header using the cmhg tool -
+ *     use the command "cmhg cmhg.CModuleHdr o.cmodulehdr h.cmodulehdr".
+ * Then you need to compile this source "cc -c -zM c.cmodule".
+ * Finally link the objects with the Shared C Library stubs -
+ *     "link -o cmodule -m o.cmodule o.cmodulehdr c:o.stubs" does the trick.
+ *
+ * To install the module, just type "cmodule".
+ *
+ * Alternatively, use the makefile provided and amu as follows:
+ *     amu -f Makefile standalone
+ *
+ * To test it, try typing various variants of tm1 and tm2 at the '*' prompt.
+ * Try also the following from *BASIC:
+ * > SYS &88000                 -- should give a message and an error
+ * > SYS &88001                 -- should give a message and divide by 0
+ * > SYS &88002                 -- should just give a message
+ * >*foo                        -- any unknown command will do
+ * > SYS &88003                 -- should give a message saying 1 unknown
+ *                                 command since last SWI call
+ * > QUIT                       -- out of BASIC
+ *
+ * Remember: The module is called TestCModule (for *RMKILL, etc).
+ */
+
+#define  TM                     "Sensehat_Matrix"
+#define  UNKNOWN_CMD_SERVICE    4
+#define  UNUSED(x)              (x = x)
+#define EventV 16
+#define EnableEvent 14
+#define DisableEvent 13
+#define MouseClick 10
+#define Keypress 11
+#define R 0xF800
+#define G 0x07E0
+#define Z 0x0000
+#define B 0x001F
+#define W 0xFFFF
+#define Y 0xFFE0
+#define CHECKBIT(var,pos) ((var)&(1<<(pos)))
+typedef int osbool;
+
+#define TRUE 1
+#define FALSE !TRUE
+
+static _kernel_oserror tm_error_pixel = {0x88001,"SetPixel failed!"};
+static _kernel_oserror tm_error_pattern = {0x88001,"Pattern failed!"};
+int pattern_cycle =0;
+osbool cycle =TRUE;
+static uint16_t closed[64] =
+{//
+R,W,W,W,W,W,W,R,//
+W,R,W,W,W,W,R,W,//
+W,W,R,W,W,R,W,W,//
+W,W,W,R,R,W,W,W,//
+W,W,W,R,R,W,W,W,//
+W,W,R,W,W,R,W,W,//
+W,R,W,W,W,W,R,W,//
+R,W,W,W,W,W,W,R};
+
+static uint16_t open[64] =
+{//
+G,W,W,W,W,W,W,W,//
+W,G,W,W,W,W,W,W,//
+W,W,G,W,W,W,W,W,//
+W,W,W,G,W,W,W,W,//
+W,W,W,W,G,W,W,G,//
+W,W,W,W,W,G,W,G,//
+W,W,W,W,W,W,G,G,//
+W,W,W,W,G,G,G,G
+};
+
+static uint16_t voorrang[64] =
+{//
+Z,Z,Z,W,W,Z,Z,Z,//
+Z,Z,W,Y,Y,W,Z,Z,//
+Z,W,Y,Y,Y,Y,W,Z,//
+W,Y,Y,Y,Y,Y,Y,W,//
+W,Y,Y,Y,Y,Y,Y,W,//
+Z,W,Y,Y,Y,Y,W,Z,//
+Z,Z,W,Y,Y,W,Z,Z,//
+Z,Z,Z,W,W,Z,Z,Z
+};static uint16_t off[64] =
+{//
+Z,Z,Z,Z,Z,Z,Z,Z,//
+Z,Z,Z,Z,Z,Z,Z,Z,//
+Z,Z,Z,Z,Z,Z,Z,Z,//
+Z,Z,Z,Z,Z,Z,Z,Z,//
+Z,Z,Z,Z,Z,Z,Z,Z,//
+Z,Z,Z,Z,Z,Z,Z,Z,//
+Z,Z,Z,Z,Z,Z,Z,Z,//
+Z,Z,Z,Z,Z,Z,Z,Z
+};
+
+static void claim_release(int claim, void *pw);
+static void claim_free_events(int claim,void *pw);
+static void add_remove(int add);
+_kernel_oserror *tm_swi(int swi_no, _kernel_swi_regs *r, void *private_word)
+{
+    UNUSED(private_word);
+    switch(swi_no)
+    {
+      case 0:
+          if(r!=NULL && r->r[0] != 0 && r->r[1] != 0) // check if both size and array pointer are here.
+          {
+            uint16_t* array = (uint16_t*) (r->r[0]);
+            int length  = r->r[1];
+            SetPattern(array,length);
+          }
+          else
+          {
+            return &tm_error_pattern;
+          }
+          break;
+      case 1:
+          if(r!= NULL && r->r[0]>=0 && r->r[1]>=0 && r->r[2] >=0) // following order (x, y, color)
+          {
+            SetPixel(r->r[0],r->r[1],(uint16_t)r->r[2],1); //SetPixel
+          }
+          else
+          {
+              return &tm_error_pixel;
+          }
+          break;
+       case 2:
+            if(r!=NULL)
+            {
+                unsigned char p = ReadJoystick();
+                printf("%x\n",p);
+                *(unsigned char*)r->r[0] =p;
+                break;
+            }
+    }
+    return 0;
+}
+
+_kernel_oserror *tm_cmd(const char *arg_string, int argc, int cmd_no, void *pw)
+{
+    UNUSED(pw);
+    switch(cmd_no)
+    {
+       case 0:
+            cycle = FALSE;
+            printf("The led cycling has been turned off\n");
+            break;
+       case 1:
+            cycle = TRUE;
+            printf("The led cycling has been turned on\n");
+            break;
+    }
+    return 0;
+}
+
+_kernel_oserror *tm_initialise(const char *cmd_tail, int podule_base, void *private_word)
+{
+    UNUSED(cmd_tail);
+    UNUSED(podule_base);
+    UNUSED(cmd_tail);
+    UNUSED(podule_base);
+    claim_free_events(1,private_word);
+    return NULL;
+}
+
+/* the claim/free functions... */
+
+
+static void claim_release(int claim, void *pw)
+{
+  _kernel_swi_regs regs;
+  regs.r[0] = EventV;
+  regs.r[1] = (int) register_event;
+  regs.r[2] = (int) pw;
+  _kernel_swi(claim ? OS_Claim : OS_Release,&regs,&regs);
+}
+
+static void add_remove(int add)
+{
+  _kernel_swi_regs regs;
+  regs.r[0] = add ? EnableEvent:DisableEvent;
+  regs.r[1] = MouseClick;           /* mouse */
+  _kernel_swi(OS_Byte,&regs,&regs);
+}
+
+static void claim_free_events(int claim,void *pw)
+{
+  if (claim) {
+    claim_release(1,pw);
+    add_remove(1);
+  } else {
+    add_remove(0);
+    claim_release(0,pw);
+  }
+}
+/* finalise... */
+_kernel_oserror *events_final (int fatal, int podule, void *pw)
+{
+  UNUSED(fatal);
+  UNUSED(podule);
+  /* handle low level events */
+  claim_free_events(0,pw);
+  return NULL;
+}
+
+/* the handler itself... */
+int event_handler(_kernel_swi_regs *r,void *pw)
+{
+  UNUSED(pw);
+  if(cycle == TRUE)
+  {
+  /* switch on the event code */
+  switch (r->r[0])
+  {
+      case MouseClick:
+         if(CHECKBIT(r->r[3],0))
+         {
+                     pattern_cycle++;
+                     if(pattern_cycle >2)
+                     {
+                         pattern_cycle = 0;
+                     }
+         }
+         else if(CHECKBIT(r->r[3],2))
+         {
+                     pattern_cycle--;
+                     if(pattern_cycle <0)
+                     {
+                       pattern_cycle =2;
+                     }
+         }
+         switch (pattern_cycle)
+         {
+                case 0:
+                     SetPattern(closed,64);
+                break;
+                case 1:
+                     SetPattern(open,64);
+                break;
+                case 2:
+                     SetPattern(voorrang,64);
+                break;
+                default:
+                break;
+         }
+      default:
+      break;
+  }
+  }
+  return 1;
+}
+
+
+int main(int argc, char *argv[])
+{
+    SetPattern(off,64);
+    return 0;
+}

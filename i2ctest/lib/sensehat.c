@@ -4,7 +4,7 @@
 #include <fcntl.h>                      //Needed for I2C port
 #include <sys/ioctl.h>                  //Needed for I2C port
 #include <linux/i2c-dev.h>              //Needed for I2C port
-#include "sensehat.h"			
+#include "sensehat.h"
 #include "registers.h"			//register definitions for hardware of the rpi sensehat
 
 static int OpenBus(char *filename);
@@ -12,7 +12,7 @@ static int OpenSlave(int addr, int file_i2c);
 static int ReadSlave(int file_i2c, unsigned char regi, unsigned char* buffer, int length);
 static int WriteSlave(int file_i2c, unsigned char regi, unsigned char* buffer, int length);
 
-static unsigned char LEDmatrix[192] = {0}; 
+static unsigned char LEDmatrix[192] = {0};
 static int file_joyled = -1; // led2472 via attiny
 static int file_pressure = -1; //lps25h pressure sensor
 static int file_humi=-1; // //hts221 temp/hum sensor
@@ -26,7 +26,7 @@ static int H1_T0_OUT, T0_OUT, T1_OUT;
 
 static int OpenBus(char *filename)
 {
-        int bus; 
+        int bus;
         if ((bus = open(filename, O_RDWR)) < 0)
         {
                 //ERROR HANDLING: you can check errno to see what went wrong
@@ -52,7 +52,7 @@ static int OpenSlave(int addr, int file_i2c)
 }
 
 static int ReadSlave(int file_i2c, unsigned char regi, unsigned char* buffer,int length)
-{	
+{
 	if(buffer == NULL)
 	{
 //		printf("empty buffer u fool\n");
@@ -75,7 +75,7 @@ static int WriteSlave(int file_i2c, unsigned char regi ,unsigned char* buffer,in
         //----- WRITE BYTES -----
 	unsigned char buf[512];
 	int rc;
-	if(length> 510 || length < 1 || buffer == NULL) // buf[0] place in the array is reserved for the register adress so only 511 chars can be send at the most. 
+	if(length> 510 || length < 1 || buffer == NULL) // buf[0] place in the array is reserved for the register adress so only 511 chars can be send at the most.
 	{
 		return -1;
 	}
@@ -104,15 +104,15 @@ int InitDisplay(int bus)
 	OpenSlave(ATTINY,file_joyled);
 
 
-	
+
 	if(file_joyled <0)
 	{
 		return -1;
-	}		
+	}
 	return 1;
 }
 int InitHTS(int bus)
-{	
+{
 	unsigned char buf[32] = {0}; //buffer for setting and reading settings of sensors
 	char filename[32];
 	int rc =0;
@@ -144,7 +144,7 @@ int InitHTS(int bus)
 	{
 		unsigned char CTRL_REG1_R = buf[0];
 		CTRL_REG1_R &= 0x78; // keep the reserved bits that must stay the same
-		CTRL_REG1_R |= 0x87; // power-on sensor, continues conversion and set output rate to 7 Hz	
+		CTRL_REG1_R |= 0x87; // power-on sensor, continues conversion and set output rate to 7 Hz
 		unsigned char CTRL_REG2_R = buf[1];
 		CTRL_REG2_R &= 0x7C; // reload calibration values, just incase something went wrong above.
 		//write the changed registers back to sensor.
@@ -157,10 +157,10 @@ int InitHTS(int bus)
 		return -3;
 	}
 	//Now to calibrate the sensor
-	// read all calibration values in one go. 
+	// read all calibration values in one go.
 	rc = ReadSlave(file_humi,HT_H0_rH_x2+CONTIRW, buf, 16); // buf[4], buf[8], buf[9] are reserved registers and containt no calibration values.
-	if(rc == 16) 
-	
+	if(rc == 16)
+
 	{
 		H0_rH_x2 = buf[0];
 		//printf("H0_rH_2x = 0x%x\n",H0_rH_x2);
@@ -171,7 +171,7 @@ int InitHTS(int bus)
 		//printf("T0_degC_8x = 0x%x\n",T0_degC_x8);
 		T1_degC_x8 = buf[3];
 		//printf("T1_degc_8x = 0x%x\n",T1_degC_x8);
-		
+
 		T0_degC_x8 |= ((buf[5] & 0x3) << 8); // 2 msb bits
 		//printf("T0_degC_8x = 0x%x\n",T0_degC_x8);
 		T1_degC_x8 |= ((buf[5] & 0xc) << 6); // 2 msb bits rest of the bits are reserved and shoudl not be used.
@@ -190,7 +190,7 @@ int InitHTS(int bus)
 		return -4;
 	}
 	if (H0_T0_OUT > 32767) H0_T0_OUT -= 65536; // check if value is signed or not if so adjust it.
-	if (H1_T0_OUT > 32767) H1_T0_OUT -= 65536; 
+	if (H1_T0_OUT > 32767) H1_T0_OUT -= 65536;
 	if (T0_OUT > 32767) T0_OUT -= 65536;
 	if (T1_OUT > 32767) T1_OUT -= 65536;
 	return 1;
@@ -202,10 +202,10 @@ int InitLPSH(int bus)
 	char filename[32];
 	unsigned char buf[4] = {0};
 	buf[0] = 0xC4; // Turn on and set 25Hz update, wait with update till LSB and MSB are read form registers.
-	buf[1] = 0x50; // Activate FIFO registers and use MEAN_MODE_DEC 
-	
-	buf[2] = 0xDF; // Set MEAN_MODE for the FIFO registers and set sample rate to 32.	
-	
+	buf[1] = 0x50; // Activate FIFO registers and use MEAN_MODE_DEC
+
+	buf[2] = 0xDF; // Set MEAN_MODE for the FIFO registers and set sample rate to 32.
+
 	sprintf(filename, "/dev/i2c-%d", bus);
 	//pressure sensor
 	file_pressure = OpenBus(filename);
@@ -214,7 +214,7 @@ int InitLPSH(int bus)
 	{
 		return -1;
 	}
-	
+
 	WriteSlave(file_pressure, PRESS_CTRL_1 + CONTIRW , buf, 2); //Write to ctrl register 1 and 2.
 	WriteSlave(file_pressure, PRESS_FIFO_CTRL, &buf[2],1); // write the fifo register.
  	return 1;
@@ -242,13 +242,13 @@ int InitLSM(int bus)
 	buf[3] = 0x08; // high performance mode
 	WriteSlave(file_magnet,MAG_CTRL_1 +CONTIRW, buf, 4);
 
-	// Init accelerometer	
+	// Init accelerometer
 	buf[0] = 0x60; // 119hz accel
 	WriteSlave(file_acc, LSMGA_CTRL_6_XL, buf, 1);
 	buf[0] = 0x38; // enable gyro on all axes
 	WriteSlave(file_acc, LSMGA_CTRL_4, buf, 1);
-        buf[0] = 0x28; // data rate + full scale + bw selection
-        WriteSlave(file_acc, LSMGA_CTRL_1_G, buf, 1); // gyro ctrl_reg1
+  buf[0] = 0x28; // data rate + full scale + bw selection
+  WriteSlave(file_acc, LSMGA_CTRL_1_G, buf, 1); // gyro ctrl_reg1
 
 	return 1;
 }
@@ -278,14 +278,14 @@ int SetPattern(uint16_t* pattern, int size)
 		return -1;
 	}
 	int x,y,i;
-	
+
 	for(y =0;y < 8; y++)
-	{		
+	{
 		for(x=0;x<8;x++)
 		{
 			i = (y*8) + x;
 			SetPixel(x,y,pattern[i],0);
-		}		
+		}
 	}
 	SetPixel(0,0,pattern[0],1);
 }
@@ -305,7 +305,7 @@ int ReadTemp(double *temp_out)
 		T0_degC = T0_degC_x8 / 8.0; // T0/T1_deg_C_x8 is calibation value that need to be devided by 8 cause the original value is a multiplied by 8.
 		//printf("T0_degC = %i\n",T0_degC);
 		T1_degC = T1_degC_x8 / 8.0;
-		//printf("T1_degC = %i\n",T1_degC); 
+		//printf("T1_degC = %i\n",T1_degC);
 		//printf("t1 calculated\n");
 		tmp = (T_out - T0_OUT) * (T1_degC - T0_degC);
 		//printf("tmp = %i\n",tmp);
@@ -314,7 +314,7 @@ int ReadTemp(double *temp_out)
 		//printf("temp_out =%i\n", *temp_out);
 		return 1;
 	}
-	return 0; // not ready	
+	return 0; // not ready
 }
 
 int ReadHumidity(double* hum_out)
@@ -330,7 +330,7 @@ int ReadHumidity(double* hum_out)
 		if (rc == 2)
 		{
 			H_T_out = buf[0] + (buf[1] << 8);
-			if (H_T_out > 32767) 
+			if (H_T_out > 32767)
 			{
 				H_T_out -=65536;
 			}
@@ -352,10 +352,10 @@ int ReadPressure(double * press_out)
 		rc = ReadSlave(file_pressure, PRESS_OUT_P_XL + CONTIRW, buffer, 3); // Read the lowest part, middle part and highest part of the pressure output registers.
 		if (rc == 3)
 		{
-			P = buffer[0] + (buffer[1]<<8) + (buffer[2]<<16); 
+			P = buffer[0] + (buffer[1]<<8) + (buffer[2]<<16);
 			*press_out = P / 4096.0; //hPa
 		}
-		return 1;	
+		return 1;
 	}
 	return 0;
 }
@@ -376,7 +376,7 @@ int ReadPtemp (double *temp_out)
 			if (T > 32767) T -= 65536; // twos compliment
 			*temp_out = 42.5 + (T / 480.0); // 42.5 + T value/480
 		}
-		return 1;	
+		return 1;
 	}
 	return 0;
 }
