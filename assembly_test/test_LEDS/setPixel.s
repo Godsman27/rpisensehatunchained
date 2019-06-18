@@ -29,17 +29,17 @@ main:
 	ldr r7, =return
 	str lr, [r7]
 
-	mov	r1, #0
-	mov r0, #0
+	mov	r1, #3
+	mov r0, #1
 
-	mov r2, #0xF8
+	mov r2, #0x0cc1
 	lsl r2, #8
 
 	mov r3, #1
 
 
 	
-		@ if r0 < 0 && r0 >=8	
+					@ if r0 < 0 && r0 >=8	
 	cmp r0, #0			
 	blo end
 	cmp r0, #8
