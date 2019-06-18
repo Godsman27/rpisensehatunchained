@@ -57,7 +57,7 @@ cleanArray:
 	add r3, r1, r5
 	str	r7, [r3]
 	add r5,r5,#1
-	b	Loop
+	b	cleanArray
 	
 
 fillArray:
