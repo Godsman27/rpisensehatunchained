@@ -22,49 +22,6 @@ LEDArray: 	.skip 	193
 .text
 
 
-reset:
-
-	ldr r2, =x
-	ldr	r2, [r2]
-	ldr r3, =y
-	ldr	r3, [r3]
-
-	ldr r6, =LEDArray
-				@ i = (y * 24) + x
-	mov r8, #24
-	mla	r1, r8, r1, r0
-	add r1, r6, r1		
-	add r1, r1, #1
-	
-	ldr r2, =CLEAR
-	ldr r2, [r2]
-
-
-	@ldr r1, [r8]
-	ldr	r0, =message2
-	bl printf
-	
-
-
-	mov	r8, r2, LSR #10
-	and r8, #0x3e
-	str r8, [r1]
-	
-		mov	r8, r2, LSR #5
-	and r8, #0x3f
-	str	r8, [r1, #+8]
-	
-	mov	r8, r2, LSL #1
-	and r8, #0x3e
-	str r8, [r1, #+16]
-	
-	push	{lr}
-	bl write
-	pop	{lr}
-	
-	bx	lr
-
-
 write:
 	ldr r0, =fd
 	ldr r0,	[r0]
@@ -86,11 +43,25 @@ ledLoop:
 	mla	r1, r8, r1, r0
 	add r1, r6, r1		
 	add r1, r1, #1
-
+	mov r10, r1
 	ldr	r2, =COLOR
 	ldr r2, [r2]
 
 	
+	mov r5, #0
+	mov r7, #0
+cleanArray:
+	
+	cmp	r5, #193
+	beq fillArray
+	add r3, r1, r5
+	str	r7, [r3]
+	add r5,r5,#1
+	b	Loop
+	
+
+fillArray:
+	mov r1, r10
 	mov	r8, r2, LSR #10
 	and r8, #0x3e
 	str r8, [r1]
